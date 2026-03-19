@@ -40,9 +40,9 @@ src/
 │       ├── handler.rs         # LINE Webhook handler + HMAC-SHA256 驗證
 │       └── client.rs          # LINE Messaging API reply/push
 │
-├── core/                      # Core Layer
+├── assistant/                  # Core Layer
 │   ├── mod.rs
-│   └── assistant.rs           # ChatRequest → 記憶 → LLM → tool call loop → ChatResponse
+│   └── service.rs             # ChatRequest → 記憶 → LLM → tool call loop → ChatResponse
 │
 ├── llm/                       # LLM 客戶端
 │   ├── mod.rs
