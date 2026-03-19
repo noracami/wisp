@@ -1,0 +1,43 @@
+# Worklog
+
+## 2026-03-19
+
+### 決策：Wisp 架構轉型
+
+Wisp 從「Discord 專用 AI 聊天機器人」轉型為**平台無關的 AI 助理服務**。
+
+**核心架構決策：**
+- **分層設計（方案 A）**：Platform Layer → Core Layer → Tool Layer
+- Discord 和 LINE 只是前端通道，核心邏輯完全不依賴任何平台
+- 統一使用者身份系統：一個 user 可擁有多個平台帳號（`platform_identities` 表）
+- 帳號綁定先用後台手動設定，未來再做指令綁定
+- 功能擴充透過 **LLM Tool Use**（function calling），LLM 自行決定何時呼叫哪個工具
+- 路由加 prefix：`/discord/interactions`、`/line/webhook`
+- 平台設定為可選，未設定的平台不載入
+- 未來遷移到 Event Bus 架構（方案 C）成本低
+
+### 產出
+
+1. **設計文件** — `docs/superpowers/specs/2026-03-19-multi-platform-assistant-design.md`
+   - 通過 2 輪 spec review
+   - 涵蓋：分層架構、統一訊息格式、DB schema、Tool Use、路由、啟動流程
+
+2. **實作計畫** — `docs/superpowers/plans/2026-03-19-multi-platform-assistant.md`
+   - 通過 2 輪 plan review
+   - 11 個 Task，每個有完整程式碼、測試、commit 指令
+   - 關鍵修正：`core` 模組改名 `assistant`（避免 Rust 命名衝突）、multi-turn tool call context 累積、LINE HMAC constant-time 比對
+
+3. **Feature branch** — `feat/multi-platform-assistant`（已建立，尚未開始實作）
+
+### 現有程式碼盤點
+
+| 功能 | 狀態 |
+|------|------|
+| 天氣預報 scheduler | ✅ 已在運行 |
+| Claude LLM 客戶端 | ⚠️ 程式碼存在，未掛路由 |
+| 對話記憶 | ⚠️ 程式碼存在，未接入流程 |
+| Discord interaction handler | ⚠️ 程式碼存在，未掛路由 |
+
+### 下次接續
+
+從 Task 1 開始執行實作計畫（subagent-driven development）。
