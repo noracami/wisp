@@ -1662,8 +1662,8 @@ async fn handle_interaction(
 }
 
 async fn process_command(
-    state: Arc<DiscordState>,
-    interaction: Value,
+    state: &DiscordState,
+    interaction: &Value,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let platform_user_id = interaction["member"]["user"]["id"]
         .as_str()
@@ -2215,13 +2215,11 @@ pub fn verify_line_signature(
         .map_err(|e| AppError::Internal(format!("HMAC error: {e}")))?;
     mac.update(body);
 
-    let expected = BASE64.encode(mac.finalize().into_bytes());
-
-    if signature == expected {
-        Ok(())
-    } else {
-        Err(AppError::VerificationFailed)
-    }
+    let decoded = BASE64.decode(signature)
+        .map_err(|_| AppError::VerificationFailed)?;
+    mac.verify_slice(&decoded)
+        .map_err(|_| AppError::VerificationFailed)?;
+    Ok(())
 }
 
 async fn handle_webhook(
