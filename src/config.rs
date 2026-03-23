@@ -2,60 +2,72 @@ use std::env;
 
 #[derive(Debug, Clone)]
 pub struct Config {
-    pub discord_application_id: String,
-    pub discord_public_key: String,
-    pub discord_bot_token: String,
-    pub discord_webhook_url: String,
     pub anthropic_api_key: String,
+    pub database_url: String,
     pub cwa_api_key: String,
     pub cwa_location: String,
-    pub database_url: String,
     pub host: String,
     pub port: u16,
+    pub discord: Option<DiscordConfig>,
+    pub line: Option<LineConfig>,
+}
+
+#[derive(Debug, Clone)]
+pub struct DiscordConfig {
+    pub application_id: String,
+    pub public_key: String,
+    pub bot_token: String,
+    pub webhook_url: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct LineConfig {
+    pub channel_secret: String,
+    pub channel_access_token: String,
 }
 
 impl Config {
-    pub fn new(
-        discord_application_id: String,
-        discord_public_key: String,
-        discord_bot_token: String,
-        discord_webhook_url: String,
-        anthropic_api_key: String,
-        cwa_api_key: String,
-        cwa_location: String,
-        database_url: String,
-        host: String,
-        port: u16,
-    ) -> Self {
-        Self {
-            discord_application_id,
-            discord_public_key,
-            discord_bot_token,
-            discord_webhook_url,
-            anthropic_api_key,
-            cwa_api_key,
-            cwa_location,
-            database_url,
-            host,
-            port,
-        }
-    }
-
     pub fn from_env() -> Result<Self, env::VarError> {
-        Ok(Self::new(
-            env::var("DISCORD_APPLICATION_ID")?,
-            env::var("DISCORD_PUBLIC_KEY")?,
-            env::var("DISCORD_BOT_TOKEN")?,
-            env::var("DISCORD_WEBHOOK_URL")?,
-            env::var("ANTHROPIC_API_KEY")?,
-            env::var("CWA_API_KEY")?,
-            env::var("CWA_LOCATION").unwrap_or_else(|_| "臺北市".to_string()),
-            env::var("DATABASE_URL")?,
-            env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),
-            env::var("PORT")
+        let discord = match (
+            env::var("DISCORD_APPLICATION_ID"),
+            env::var("DISCORD_PUBLIC_KEY"),
+            env::var("DISCORD_BOT_TOKEN"),
+            env::var("DISCORD_WEBHOOK_URL"),
+        ) {
+            (Ok(app_id), Ok(pub_key), Ok(bot_token), Ok(webhook_url)) => {
+                Some(DiscordConfig {
+                    application_id: app_id,
+                    public_key: pub_key,
+                    bot_token,
+                    webhook_url,
+                })
+            }
+            _ => None,
+        };
+
+        let line = match (
+            env::var("LINE_CHANNEL_SECRET"),
+            env::var("LINE_CHANNEL_ACCESS_TOKEN"),
+        ) {
+            (Ok(secret), Ok(token)) => Some(LineConfig {
+                channel_secret: secret,
+                channel_access_token: token,
+            }),
+            _ => None,
+        };
+
+        Ok(Self {
+            anthropic_api_key: env::var("ANTHROPIC_API_KEY")?,
+            database_url: env::var("DATABASE_URL")?,
+            cwa_api_key: env::var("CWA_API_KEY")?,
+            cwa_location: env::var("CWA_LOCATION").unwrap_or_else(|_| "臺北市".to_string()),
+            host: env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string()),
+            port: env::var("PORT")
                 .unwrap_or_else(|_| "8080".to_string())
                 .parse()
                 .expect("PORT must be a number"),
-        ))
+            discord,
+            line,
+        })
     }
 }
