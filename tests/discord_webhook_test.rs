@@ -14,7 +14,7 @@ async fn send_webhook_message_posts_correct_payload() {
         .mount(&mock_server)
         .await;
 
-    let client = wisp::discord::webhook::WebhookClient::new(&mock_server.uri());
+    let client = wisp::platform::discord::webhook::WebhookClient::new(&mock_server.uri());
     client.send_message("Hello from Wisp!").await.unwrap();
 }
 
@@ -35,7 +35,7 @@ async fn send_webhook_embed_posts_correct_payload() {
         .mount(&mock_server)
         .await;
 
-    let client = wisp::discord::webhook::WebhookClient::new(&mock_server.uri());
+    let client = wisp::platform::discord::webhook::WebhookClient::new(&mock_server.uri());
     client
         .send_embed("Weather Report", "Today: Sunny, 25°C", 0x00AAFF)
         .await

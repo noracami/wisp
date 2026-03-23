@@ -2,7 +2,7 @@ use std::sync::Arc;
 use tokio_cron_scheduler::{Job, JobScheduler};
 
 use wisp::config::Config;
-use wisp::discord::webhook::WebhookClient;
+use wisp::platform::discord::webhook::WebhookClient;
 use wisp::weather::cwa::CwaClient;
 
 pub async fn start_scheduler(config: Arc<Config>) -> Result<JobScheduler, Box<dyn std::error::Error + Send + Sync>> {
