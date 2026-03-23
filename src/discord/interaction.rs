@@ -151,13 +151,21 @@ async fn process_command(
         .collect();
 
     // Call Claude
-    let response = state
+    let llm_response = state
         .claude
         .chat(
             &messages,
             Some("You are Wisp, a helpful AI assistant on Discord. Keep responses concise."),
+            None,
         )
         .await?;
+
+    let response = match llm_response {
+        crate::llm::claude::LlmResponse::Text(t) => t,
+        crate::llm::claude::LlmResponse::ToolUse { .. } => {
+            "Sorry, tool use is not yet supported in this handler.".to_string()
+        }
+    };
 
     // Store assistant response
     state
