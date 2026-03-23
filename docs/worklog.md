@@ -41,3 +41,46 @@ Wisp 從「Discord 專用 AI 聊天機器人」轉型為**平台無關的 AI 助
 ### 下次接續
 
 從 Task 1 開始執行實作計畫（subagent-driven development）。
+
+---
+
+## 2026-03-23
+
+### 完成：多平台架構實作（Task 2–11）
+
+一次完成實作計畫中剩餘的 10 個 Task（Task 1 在 3/19 已完成），共 12 個 commit。
+
+**實作進度：**
+
+| Task | 內容 | 狀態 |
+|------|------|------|
+| 1 | DB schema — users + platform_identities | ✅（3/19 已完成） |
+| 2 | Platform types 與共用型別 | ✅ |
+| 3 | Memory 改用統一 user_id | ✅ |
+| 4 | Tool trait + ToolRegistry + WeatherTool | ✅ |
+| 5 | Claude client — tool use 支援 | ✅ |
+| 6 | Assistant service（多輪 tool call loop） | ✅ |
+| 7 | 搬移 Discord 模組至 platform/discord/ | ✅ |
+| 8 | Config — 可選平台設定 + LineConfig | ✅ |
+| 9 | LINE Bot — HMAC 簽章驗證 + Messaging API client | ✅ |
+| 10 | 接線 main.rs（可選 Discord/LINE 路由） | ✅ |
+| 11 | 更新 README | ✅ |
+
+**測試：25 個非 DB 測試全部通過，6 個 DB 整合測試待部署後驗證。**
+
+### GCP VM 部署準備
+
+- GCP Compute Engine VM（e2-small, Ubuntu 24.04）已建立
+- 已安裝：Docker 29.3.0、Docker Compose 5.1.1、cloudflared 2026.3.0
+- SSH 連線設定完成（`ssh tmp-wisp`）
+- 分支已 push 到 origin
+
+### 下次接續
+
+1. **VM 上 clone repo** — repo 是 private，需設定 deploy key 或 PAT
+2. **設定 `.env`** — 填入 Anthropic、CWA、Discord/LINE credentials
+3. **`docker compose up -d`** — 啟動服務
+4. **設定 Cloudflare Tunnel** — `cloudflared tunnel login` → 建立 tunnel → 指向 localhost:8080
+5. **跑 DB 整合測試** — 確認 migration 和 UserService/Memory 正常
+6. **設定平台 Webhook URL** — Discord Developer Portal / LINE Developers Console
+7. **端對端測試** — 實際從 Discord/LINE 發訊息驗證完整流程
