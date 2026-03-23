@@ -42,6 +42,7 @@ tokio-cron-scheduler = "0.13"
 # Misc
 uuid = { version = "1", features = ["v4", "serde"] }
 thiserror = "2"
+async-trait = "0.1"
 
 [dev-dependencies]
 axum-test = "19"
