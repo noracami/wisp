@@ -1,57 +1,91 @@
 # Wisp
 
-基於 Rust 開發的高效能 Discord AI 代理橋接器。捨棄傳統 Bot 的長連線架構，採用 Interactions Endpoint (Webhook-based) 實現極簡化部署，具備多模型驅動（以 Claude 為核心）與長期對話記憶能力。
+基於 Rust 開發的高效能多平台 AI 助理服務。採用分層架構，平台層（Discord、LINE）與核心邏輯完全分離，新增平台無需修改核心程式碼。
 
-## 架構決策
+## 架構
 
-### Discord 互動機制
+```
+Platform Layer          Core Layer           Tool Layer
+┌──────────────┐    ┌──────────────────┐    ┌──────────────┐
+│   Discord    │───>│                  │───>│ WeatherTool  │
+│  /discord/*  │    │   Assistant      │    │              │
+├──────────────┤    │                  │    ├──────────────┤
+│    LINE      │───>│  Memory + LLM    │    │  (未來工具)  │
+│   /line/*    │    │  Tool Call Loop  │    │              │
+└──────────────┘    └──────────────────┘    └──────────────┘
+```
 
-- **輸入**：透過 Discord Slash Commands 接收指令（Interactions Endpoint，純 HTTP POST）
-- **輸出**：透過 Discord Webhook URL 回傳訊息（可動態改變名稱與頭像）
-- **3 秒限制**：Discord 要求 3 秒內回應，採用 Defer → Webhook 更新的非同步流程
+- **Platform Layer**：處理各平台的簽章驗證、訊息解析、回覆格式
+- **Core Layer**：平台無關的 Assistant，管理對話記憶與 LLM 互動
+- **Tool Layer**：透過 LLM Function Calling 擴充工具能力
 
-### 技術選型
+### 統一使用者身份
+
+一個使用者可擁有多個平台帳號，透過 `users` + `platform_identities` 表實現跨平台身份統一。
+
+## 技術選型
 
 | 領域 | 選擇 | 理由 |
 |------|------|------|
-| 語言 | Rust | 記憶體安全、高效能非同步處理 |
-| HTTP 框架 | Axum (Tokio) | 高併發 Webhook 請求處理 |
-| Discord API | `twilight-http` + `twilight-model` | 模組化、只引入需要的部分，不帶 gateway 依賴 |
-| 簽章驗證 | `ed25519-dalek` | Interactions Endpoint 的 Ed25519 簽章驗證 |
-| LLM | Claude (Anthropic) 為核心 | 設計抽象層以支援 OpenAI、Gemini 等 Provider |
-| 資料庫 | PostgreSQL + pgvector | 對話歷史 + 語意記憶，一個 DB 全包 |
+| 語言 | Rust 2024 | 記憶體安全、高效能非同步處理 |
+| HTTP 框架 | Axum 0.8 | 高併發 Webhook 請求處理 |
+| Discord | `twilight-http` + Ed25519 | Interactions Endpoint（純 HTTP，無 Gateway） |
+| LINE | HMAC-SHA256 + Messaging API | Webhook 驗證 + Reply/Push 訊息 |
+| LLM | Claude (Anthropic) | 支援 Tool Use（Function Calling） |
+| 資料庫 | PostgreSQL + pgvector | 對話歷史 + 語意記憶 |
 
-### 記憶系統
+## 路由
 
-- **PostgreSQL + pgvector** 作為唯一存儲
-- 短期上下文：載入最近 N 輪對話
-- 長期語意記憶：透過 embedding + cosine similarity 搜尋相關歷史對話
-- pgvector 是 PostgreSQL 擴充套件，`CREATE EXTENSION vector;` 即可啟用
+| 路徑 | 說明 |
+|------|------|
+| `GET /health` | 健康檢查 |
+| `POST /discord/interactions` | Discord Interactions Endpoint |
+| `POST /line/webhook` | LINE Webhook |
 
-### Tool Use（Function Calling）
+## 設定
 
-- 僅限 allow list 內的使用者可觸發 Tool Use
-- 例如：爬取網頁、檢查伺服器狀態等
+平台設定為可選，未設定的平台不載入。複製 `.env.example` 為 `.env` 並填入所需設定：
 
-### 部署
+```bash
+cp .env.example .env
+```
 
-- 雲端部署，Docker Compose
-- 使用 `pgvector/pgvector:pg17` 作為資料庫映像檔
+必要設定：`ANTHROPIC_API_KEY`、`DATABASE_URL`、`CWA_API_KEY`
+
+可選平台設定：
+- Discord：`DISCORD_APPLICATION_ID`、`DISCORD_PUBLIC_KEY`、`DISCORD_BOT_TOKEN`、`DISCORD_WEBHOOK_URL`
+- LINE：`LINE_CHANNEL_SECRET`、`LINE_CHANNEL_ACCESS_TOKEN`
+
+## 開發
+
+```bash
+# 啟動資料庫
+docker compose up db -d
+
+# 執行測試
+cargo test
+
+# 執行需要資料庫的測試
+cargo test -- --ignored
+
+# 啟動服務
+cargo run
+```
 
 ## 開發階段
 
-### Phase 1a — 定時天氣預報
+### 已完成
 
-- 排程定時發送天氣預報到 Discord Webhook
-- 呼叫天氣 API（如 CWA 中央氣象署開放資料）
-
-### Phase 1b — Slash Command 聊天
-
-- 接收 Slash Command → Defer 回應 → LLM 生成 → Webhook 更新
-- 具備對話記憶（短期上下文 + 長期語意記憶）
+- Phase 1a：定時天氣預報（CWA API → Discord Webhook）
+- Phase 1b：Discord Slash Command 聊天（Defer → LLM → 回覆）
+- 多平台架構重構：Platform → Core → Tool 分層設計
+- LINE Bot 整合（Webhook 驗證 + Messaging API）
+- Tool Use（LLM Function Calling，多輪工具呼叫迴圈）
+- 統一使用者身份系統
 
 ### 未來規劃
 
-- Web Dashboard（設定 Webhook URL、API Keys、System Prompt、模型偏好）
+- Web Dashboard（設定管理）
 - 多模型支援（OpenAI、Gemini）
 - Tool Use 擴充（更多工具能力）
+- 帳號綁定指令（跨平台帳號關聯）
