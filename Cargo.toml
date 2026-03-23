@@ -39,6 +39,11 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 chrono = { version = "0.4", features = ["serde"] }
 tokio-cron-scheduler = "0.13"
 
+# Crypto
+hmac = "0.12"
+sha2 = "0.10"
+base64 = "0.22"
+
 # Misc
 uuid = { version = "1", features = ["v4", "serde"] }
 thiserror = "2"
