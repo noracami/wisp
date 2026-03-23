@@ -2,14 +2,10 @@ use pgvector::Vector;
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::platform::ChatMessage;
+
 pub struct Memory {
     pool: PgPool,
-}
-
-#[derive(Debug, Clone)]
-pub struct ChatMessage {
-    pub role: String,
-    pub content: String,
 }
 
 impl Memory {
@@ -17,40 +13,46 @@ impl Memory {
         Self { pool }
     }
 
-    /// Get or create a conversation for a user in a channel.
     pub async fn get_or_create_conversation(
         &self,
-        user_id: &str,
+        user_id: Uuid,
         channel_id: &str,
+        platform: &str,
     ) -> Result<Uuid, sqlx::Error> {
         let existing: Option<(Uuid,)> = sqlx::query_as(
             "SELECT id FROM conversations
-             WHERE discord_user_id = $1 AND discord_channel_id = $2
-             AND created_at > now() - interval '30 minutes'
-             ORDER BY created_at DESC LIMIT 1",
+             WHERE user_id = $1 AND channel_id = $2 AND platform = $3
+             AND updated_at > now() - interval '30 minutes'
+             ORDER BY updated_at DESC LIMIT 1",
         )
         .bind(user_id)
         .bind(channel_id)
+        .bind(platform)
         .fetch_optional(&self.pool)
         .await?;
 
         if let Some((id,)) = existing {
+            // Refresh updated_at
+            sqlx::query("UPDATE conversations SET updated_at = now() WHERE id = $1")
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
             return Ok(id);
         }
 
         let (id,): (Uuid,) = sqlx::query_as(
-            "INSERT INTO conversations (discord_user_id, discord_channel_id)
-             VALUES ($1, $2) RETURNING id",
+            "INSERT INTO conversations (user_id, channel_id, platform)
+             VALUES ($1, $2, $3) RETURNING id",
         )
         .bind(user_id)
         .bind(channel_id)
+        .bind(platform)
         .fetch_one(&self.pool)
         .await?;
 
         Ok(id)
     }
 
-    /// Store a message in a conversation.
     pub async fn store_message(
         &self,
         conversation_id: Uuid,
@@ -69,20 +71,28 @@ impl Memory {
         .bind(emb)
         .execute(&self.pool)
         .await?;
+
+        // Update conversation's updated_at
+        sqlx::query("UPDATE conversations SET updated_at = now() WHERE id = $1")
+            .bind(conversation_id)
+            .execute(&self.pool)
+            .await?;
+
         Ok(())
     }
 
-    /// Load recent messages from a conversation (short-term context).
     pub async fn load_recent_messages(
         &self,
         conversation_id: Uuid,
         limit: i64,
     ) -> Result<Vec<ChatMessage>, sqlx::Error> {
         let rows: Vec<(String, String)> = sqlx::query_as(
-            "SELECT role, content FROM messages
-             WHERE conversation_id = $1
-             ORDER BY created_at ASC
-             LIMIT $2",
+            "SELECT role, content FROM (
+                SELECT role, content, created_at FROM messages
+                WHERE conversation_id = $1
+                ORDER BY created_at DESC
+                LIMIT $2
+             ) sub ORDER BY created_at ASC",
         )
         .bind(conversation_id)
         .bind(limit)
@@ -95,10 +105,9 @@ impl Memory {
             .collect())
     }
 
-    /// Semantic search across all messages for a user (Phase 2).
     pub async fn search_similar(
         &self,
-        user_id: &str,
+        user_id: Uuid,
         query_embedding: Vec<f32>,
         limit: i64,
     ) -> Result<Vec<ChatMessage>, sqlx::Error> {
@@ -107,7 +116,7 @@ impl Memory {
             "SELECT m.role, m.content
              FROM messages m
              JOIN conversations c ON m.conversation_id = c.id
-             WHERE c.discord_user_id = $1 AND m.embedding IS NOT NULL
+             WHERE c.user_id = $1 AND m.embedding IS NOT NULL
              ORDER BY m.embedding <=> $2
              LIMIT $3",
         )

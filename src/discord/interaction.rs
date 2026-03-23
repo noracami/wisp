@@ -6,6 +6,7 @@ use axum::routing::post;
 use axum::{Json, Router};
 use serde_json::{json, Value};
 use std::sync::Arc;
+use uuid::Uuid;
 
 use super::verify::verify_signature;
 use super::webhook::WebhookClient;
@@ -129,9 +130,11 @@ async fn process_command(
     let interaction_token = interaction["token"].as_str().unwrap_or("");
 
     // Load conversation context
+    // TODO: resolve real user_id via UserService in Task 7
+    let dummy_user_id = Uuid::new_v4();
     let conv_id = state
         .memory
-        .get_or_create_conversation(user_id, channel_id)
+        .get_or_create_conversation(dummy_user_id, channel_id, "discord")
         .await?;
     state
         .memory
