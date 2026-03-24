@@ -8,8 +8,31 @@ use crate::llm::claude::{ClaudeClient, LlmResponse};
 use crate::platform::{ChatMessage, ChatRequest, ChatResponse};
 use crate::tools::ToolRegistry;
 
+use crate::platform::Platform;
+
 const MAX_TOOL_ITERATIONS: usize = 10;
-const SYSTEM_PROMPT: &str = "You are Wisp, a helpful AI assistant. Keep responses concise.";
+
+fn system_prompt_for(platform: Platform) -> &'static str {
+    match platform {
+        Platform::Line => "\
+你是 Wisp，一個生活聊天小幫手。
+
+## 你的角色
+- 幫助使用者解決食、衣、住、行、育、樂等日常生活問題
+- 親切、實用、簡潔
+
+## 語言
+- 使用正體中文回答
+- 用台灣習慣的用語和說法
+
+## 回覆風格
+- 簡潔扼要，不要長篇大論
+- 實用導向，給出可以直接行動的建議
+- 語氣親切自然，像朋友聊天一樣",
+
+        Platform::Discord => "You are Wisp, a helpful AI assistant. Keep responses concise.",
+    }
+}
 
 pub struct Assistant {
     claude: Arc<ClaudeClient>,
@@ -34,6 +57,7 @@ impl Assistant {
     }
 
     pub async fn handle(&self, request: ChatRequest) -> Result<ChatResponse, AppError> {
+        let system_prompt = system_prompt_for(request.platform);
         let platform_str = request.platform.as_str();
 
         // Get or create conversation
@@ -71,7 +95,7 @@ impl Assistant {
         // Initial LLM call
         let mut response = self
             .claude
-            .chat(&history, Some(SYSTEM_PROMPT), tools_param)
+            .chat(&history, Some(system_prompt), tools_param)
             .await?;
 
         // Tool call loop — accumulate messages for multi-turn context
@@ -103,7 +127,7 @@ impl Assistant {
                 .chat_with_tool_results(
                     &history,
                     &tool_exchanges,
-                    Some(SYSTEM_PROMPT),
+                    Some(system_prompt),
                     tools_param,
                 )
                 .await?;
