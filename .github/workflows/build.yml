@@ -2,7 +2,7 @@ name: Build and Push
 
 on:
   push:
-    branches: [main, feat/multi-platform-assistant]
+    branches: [main]
 
 concurrency:
   group: deploy-${{ github.ref }}
