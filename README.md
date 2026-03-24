@@ -76,12 +76,15 @@ cargo run
 
 ### 已完成
 
-- Phase 1a：定時天氣預報（CWA API → Discord Webhook）
-- Phase 1b：Discord Slash Command 聊天（Defer → LLM → 回覆）
+- 定時天氣預報（CWA API → Discord Webhook）
+- Discord Slash Command 聊天（Defer → LLM → 回覆）
 - 多平台架構重構：Platform → Core → Tool 分層設計
 - LINE Bot 整合（Webhook 驗證 + Messaging API）
 - Tool Use（LLM Function Calling，多輪工具呼叫迴圈）
 - 統一使用者身份系統
+- Web Search 工具（Google Custom Search API）
+- CI/CD 自動部署（GitHub Actions → GCP Artifact Registry → Deploy Webhook）
+- Token 用量追蹤（`token_usage` 表）
 
 ### 未來規劃
 
@@ -89,3 +92,7 @@ cargo run
 - 多模型支援（OpenAI、Gemini）
 - Tool Use 擴充（更多工具能力）
 - 帳號綁定指令（跨平台帳號關聯）
+- User Install + Global Slash Command
+- Discord 公開頻道白名單
+
+詳細變更紀錄見 [CHANGELOG.md](CHANGELOG.md)。
