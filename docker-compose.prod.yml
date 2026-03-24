@@ -1,6 +1,6 @@
 services:
   wisp:
-    image: ghcr.io/noracami/wisp:latest
+    image: asia-east1-docker.pkg.dev/careful-broker-485510-r0/wisp/wisp:latest
     ports:
       - "8080:8080"
     env_file: .env
