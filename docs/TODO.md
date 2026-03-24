@@ -4,7 +4,7 @@
 
 - [ ] **Discord guild 暱稱** — 新增 `discord_user_profiles` 表，存 per guild 的 nickname（`user_id`, `guild_id`, `nickname`, `joined_at`）。LINE 暱稱直接放 `platform_identities.display_name`。
 - [x] **Discord 公開頻道白名單** — DB 表記錄哪些 (guild_id, channel_id) 預設公開回覆，其餘 ephemeral
-- [ ] **全域 Slash Command** — 目前是 Guild scope，測試穩定後改成 Global
-- [ ] **User Install** — 設定 Discord App 支援 User Install，到處都能用
+- [x] **全域 Slash Command** — 目前是 Guild scope，測試穩定後改成 Global
+- [x] **User Install** — 設定 Discord App 支援 User Install，到處都能用
 - [ ] **`platform_identities` 加 `display_name` 欄位** — 存各平台的全域暱稱
 - [ ] **Web 控制面板** — 管理設定、查看對話記錄、環境變數等

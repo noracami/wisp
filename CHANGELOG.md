@@ -6,6 +6,8 @@
 
 ### 新增
 - **Discord 公開頻道白名單** — `allowed_channels` 表控制 guild 頻道回覆為公開或 ephemeral，DM 永遠公開
+- **Global Slash Command** — `/chat` 從 Guild scope 改為 Global scope
+- **User Install 支援** — 使用者可自行安裝 app，不需要 guild 管理員邀請
 
 ## 2026-03-24
 
