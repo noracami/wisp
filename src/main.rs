@@ -5,6 +5,7 @@ use wisp::config::Config;
 use wisp::assistant::service::Assistant;
 use wisp::db::{create_pool, run_migrations};
 use wisp::db::memory::Memory;
+use wisp::db::token_usage::TokenUsageStore;
 use wisp::db::users::UserService;
 use wisp::llm::claude::ClaudeClient;
 use wisp::platform::discord::handler::{DiscordState, routes as discord_routes};
@@ -36,6 +37,7 @@ async fn main() {
 
     // Shared services
     let memory = Arc::new(Memory::new(pool.clone()));
+    let token_usage = Arc::new(TokenUsageStore::new(pool.clone()));
     let users = Arc::new(UserService::new(pool));
     let claude = Arc::new(ClaudeClient::with_default_url(&config.anthropic_api_key));
 
@@ -57,6 +59,7 @@ async fn main() {
         memory.clone(),
         users.clone(),
         tools,
+        token_usage,
     ));
 
     // Build router

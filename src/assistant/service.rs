@@ -2,6 +2,7 @@ use std::sync::Arc;
 use serde_json::Value;
 
 use crate::db::memory::Memory;
+use crate::db::token_usage::TokenUsageStore;
 use crate::db::users::UserService;
 use crate::error::AppError;
 use crate::llm::claude::{ClaudeClient, LlmResponse, Usage};
@@ -44,6 +45,7 @@ pub struct Assistant {
     memory: Arc<Memory>,
     users: Arc<UserService>,
     tools: Arc<ToolRegistry>,
+    token_usage: Arc<TokenUsageStore>,
 }
 
 impl Assistant {
@@ -52,12 +54,14 @@ impl Assistant {
         memory: Arc<Memory>,
         users: Arc<UserService>,
         tools: Arc<ToolRegistry>,
+        token_usage: Arc<TokenUsageStore>,
     ) -> Self {
         Self {
             claude,
             memory,
             users,
             tools,
+            token_usage,
         }
     }
 
@@ -164,12 +168,11 @@ impl Assistant {
         };
 
         // Build footer
-        let total_tokens = total_usage.input_tokens + total_usage.output_tokens;
         let footer = if used_tools.is_empty() {
-            format!("\n-# {model} · {total_tokens} tokens")
+            format!("\n-# {model} · ↑{} ↓{}", total_usage.input_tokens, total_usage.output_tokens)
         } else {
             let tools_str = used_tools.join(", ");
-            format!("\n-# {model} · {total_tokens} tokens · {tools_str}")
+            format!("\n-# {model} · ↑{} ↓{} · {tools_str}", total_usage.input_tokens, total_usage.output_tokens)
         };
         let text_with_footer = format!("{text}{footer}");
 
@@ -178,6 +181,20 @@ impl Assistant {
             .store_message(conv_id, "assistant", &text, None)
             .await
             .map_err(AppError::Database)?;
+
+        // Record token usage
+        if let Err(e) = self.token_usage.record(
+            request.user_id,
+            conv_id,
+            platform_str,
+            &model,
+            total_usage.input_tokens,
+            total_usage.output_tokens,
+            iterations as u32,
+            &used_tools,
+        ).await {
+            tracing::error!("Failed to record token usage: {e}");
+        }
 
         Ok(ChatResponse { text: text_with_footer })
     }

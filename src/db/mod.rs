@@ -1,4 +1,5 @@
 pub mod memory;
+pub mod token_usage;
 pub mod users;
 
 use sqlx::postgres::PgPoolOptions;
@@ -16,6 +17,9 @@ pub async fn run_migrations(pool: &PgPool) -> Result<(), sqlx::Error> {
         .execute(pool)
         .await?;
     sqlx::raw_sql(include_str!("../../migrations/002_multi_platform.sql"))
+        .execute(pool)
+        .await?;
+    sqlx::raw_sql(include_str!("../../migrations/003_token_usage.sql"))
         .execute(pool)
         .await?;
     Ok(())
