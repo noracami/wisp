@@ -59,6 +59,7 @@ async fn handle_interaction(
 
         // APPLICATION_COMMAND
         2 => {
+            let in_guild = interaction["guild_id"].as_str().is_some();
             let state = state.clone();
             let interaction = interaction.clone();
             tokio::spawn(async move {
@@ -67,8 +68,12 @@ async fn handle_interaction(
                     let _ = send_error_followup(&state, &interaction).await;
                 }
             });
-            // Respond with DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
-            Json(json!({"type": 5})).into_response()
+            // In server: ephemeral (flag 64), in DM: public
+            if in_guild {
+                Json(json!({"type": 5, "data": {"flags": 64}})).into_response()
+            } else {
+                Json(json!({"type": 5})).into_response()
+            }
         }
 
         _ => (StatusCode::BAD_REQUEST, "Unknown interaction type").into_response(),
