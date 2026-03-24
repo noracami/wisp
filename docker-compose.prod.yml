@@ -9,20 +9,6 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  deploy-webhook:
-    image: almir/webhook:latest
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./scripts/webhook-hooks.json:/etc/webhook/hooks.json:ro
-      - ./scripts/deploy.sh:/opt/wisp/scripts/deploy.sh:ro
-      - /usr/bin/docker:/usr/bin/docker:ro
-    environment:
-      - DEPLOY_TOKEN=${DEPLOY_TOKEN}
-    command: ["-verbose", "-hooks", "/etc/webhook/hooks.json", "-hotreload"]
-    ports:
-      - "127.0.0.1:9000:9000"
-    restart: unless-stopped
-
   db:
     image: pgvector/pgvector:pg17
     environment:

@@ -51,4 +51,6 @@ jobs:
       - name: Trigger deploy
         run: |
           curl -s -X POST "${{ secrets.DEPLOY_WEBHOOK_URL }}" \
-            -H "X-Deploy-Token: ${{ secrets.DEPLOY_TOKEN }}"
+            -H "X-Deploy-Token: ${{ secrets.DEPLOY_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d '{}'
