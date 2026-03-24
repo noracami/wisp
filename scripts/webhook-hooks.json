@@ -1,0 +1,18 @@
+[
+  {
+    "id": "deploy",
+    "execute-command": "/opt/wisp/scripts/deploy.sh",
+    "command-working-directory": "/opt/wisp",
+    "trigger-rule": {
+      "match": {
+        "type": "value",
+        "value": "{{getenv \"DEPLOY_TOKEN\"}}",
+        "parameter": {
+          "source": "header",
+          "name": "X-Deploy-Token"
+        }
+      }
+    },
+    "trigger-rule-mismatch-http-response-code": 401
+  }
+]

@@ -1,13 +1,24 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
-use super::ChatMessage;
+use crate::platform::ChatMessage;
 use crate::error::AppError;
 
 pub struct ClaudeClient {
     api_key: String,
     base_url: String,
     http: Client,
+}
+
+#[derive(Debug)]
+pub enum LlmResponse {
+    Text(String),
+    ToolUse {
+        id: String,
+        name: String,
+        input: Value,
+    },
 }
 
 #[derive(Serialize)]
@@ -17,22 +28,41 @@ struct ClaudeRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     system: Option<String>,
     messages: Vec<ClaudeMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tools: Option<Vec<Value>>,
 }
 
 #[derive(Serialize)]
 struct ClaudeMessage {
     role: String,
-    content: String,
+    content: ClaudeContent,
+}
+
+#[derive(Serialize)]
+#[serde(untagged)]
+enum ClaudeContent {
+    Text(String),
+    Blocks(Vec<Value>),
 }
 
 #[derive(Deserialize)]
 struct ClaudeResponse {
     content: Vec<ContentBlock>,
+    #[serde(default)]
+    stop_reason: Option<String>,
 }
 
 #[derive(Deserialize)]
-struct ContentBlock {
-    text: String,
+#[serde(tag = "type")]
+enum ContentBlock {
+    #[serde(rename = "text")]
+    Text { text: String },
+    #[serde(rename = "tool_use")]
+    ToolUse {
+        id: String,
+        name: String,
+        input: Value,
+    },
 }
 
 impl ClaudeClient {
@@ -52,18 +82,72 @@ impl ClaudeClient {
         &self,
         messages: &[ChatMessage],
         system_prompt: Option<&str>,
-    ) -> Result<String, AppError> {
+        tools: Option<&Vec<Value>>,
+    ) -> Result<LlmResponse, AppError> {
+        let claude_messages: Vec<ClaudeMessage> = messages
+            .iter()
+            .map(|m| ClaudeMessage {
+                role: m.role.clone(),
+                content: ClaudeContent::Text(m.content.clone()),
+            })
+            .collect();
+
+        self.send_request(claude_messages, system_prompt, tools).await
+    }
+
+    /// Send accumulated tool call results back to Claude.
+    /// Appends all tool_use/tool_result pairs after the conversation history.
+    pub async fn chat_with_tool_results(
+        &self,
+        history: &[ChatMessage],
+        tool_exchanges: &[(String, String, Value, String)], // (id, name, input, result)
+        system_prompt: Option<&str>,
+        tools: Option<&Vec<Value>>,
+    ) -> Result<LlmResponse, AppError> {
+        let mut claude_messages: Vec<ClaudeMessage> = history
+            .iter()
+            .map(|m| ClaudeMessage {
+                role: m.role.clone(),
+                content: ClaudeContent::Text(m.content.clone()),
+            })
+            .collect();
+
+        // Append each tool exchange pair
+        for (id, name, input, result) in tool_exchanges {
+            claude_messages.push(ClaudeMessage {
+                role: "assistant".to_string(),
+                content: ClaudeContent::Blocks(vec![serde_json::json!({
+                    "type": "tool_use",
+                    "id": id,
+                    "name": name,
+                    "input": input,
+                })]),
+            });
+            claude_messages.push(ClaudeMessage {
+                role: "user".to_string(),
+                content: ClaudeContent::Blocks(vec![serde_json::json!({
+                    "type": "tool_result",
+                    "tool_use_id": id,
+                    "content": result,
+                })]),
+            });
+        }
+
+        self.send_request(claude_messages, system_prompt, tools).await
+    }
+
+    async fn send_request(
+        &self,
+        messages: Vec<ClaudeMessage>,
+        system_prompt: Option<&str>,
+        tools: Option<&Vec<Value>>,
+    ) -> Result<LlmResponse, AppError> {
         let request = ClaudeRequest {
             model: "claude-sonnet-4-20250514".to_string(),
             max_tokens: 1024,
             system: system_prompt.map(|s| s.to_string()),
-            messages: messages
-                .iter()
-                .map(|m| ClaudeMessage {
-                    role: m.role.clone(),
-                    content: m.content.clone(),
-                })
-                .collect(),
+            messages,
+            tools: tools.cloned(),
         };
 
         let resp: ClaudeResponse = self
@@ -80,10 +164,24 @@ impl ClaudeClient {
             .json()
             .await?;
 
-        resp.content
-            .into_iter()
-            .next()
-            .map(|b| b.text)
-            .ok_or_else(|| AppError::Internal("Empty response from Claude".to_string()))
+        // Check for tool_use first
+        for block in &resp.content {
+            if let ContentBlock::ToolUse { id, name, input } = block {
+                return Ok(LlmResponse::ToolUse {
+                    id: id.clone(),
+                    name: name.clone(),
+                    input: input.clone(),
+                });
+            }
+        }
+
+        // Fall back to text
+        for block in resp.content {
+            if let ContentBlock::Text { text } = block {
+                return Ok(LlmResponse::Text(text));
+            }
+        }
+
+        Err(AppError::Internal("Empty response from Claude".to_string()))
     }
 }

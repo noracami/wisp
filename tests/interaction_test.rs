@@ -6,8 +6,11 @@ use serde_json::json;
 
 fn create_test_app(signing_key: &SigningKey) -> TestServer {
     let public_key_hex = hex::encode(signing_key.verifying_key().as_bytes());
-    let app = wisp::discord::interaction::test_router(public_key_hex);
-    TestServer::new(app)
+    let state = std::sync::Arc::new(wisp::platform::discord::handler::DiscordPingState {
+        public_key_hex,
+    });
+    let router = wisp::platform::discord::handler::ping_router(state);
+    TestServer::new(router)
 }
 
 fn sign_request(signing_key: &SigningKey, timestamp: &str, body: &[u8]) -> String {
