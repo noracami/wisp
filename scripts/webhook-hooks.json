@@ -12,6 +12,7 @@
           "name": "X-Deploy-Token"
         }
       }
-    }
+    },
+    "trigger-rule-mismatch-http-response-code": 401
   }
 ]
