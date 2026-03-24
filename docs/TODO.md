@@ -8,3 +8,4 @@
 - [x] **User Install** — 設定 Discord App 支援 User Install，到處都能用
 - [ ] **`platform_identities` 加 `display_name` 欄位** — 存各平台的全域暱稱
 - [ ] **Web 控制面板** — 管理設定、查看對話記錄、環境變數等
+- [ ] **查詢時間工具** — 讓 LLM 能取得當前日期時間，回答時間相關問題
