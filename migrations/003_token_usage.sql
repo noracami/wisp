@@ -1,4 +1,4 @@
-CREATE TABLE token_usage (
+CREATE TABLE IF NOT EXISTS token_usage (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id),
     conversation_id UUID NOT NULL REFERENCES conversations(id),
@@ -11,4 +11,4 @@ CREATE TABLE token_usage (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_token_usage_user_time ON token_usage (user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_token_usage_user_time ON token_usage (user_id, created_at);
