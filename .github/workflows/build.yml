@@ -58,6 +58,8 @@ jobs:
 
       - name: Notify Discord
         if: always()
+        env:
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
         run: |
           if [ "${{ job.status }}" = "success" ]; then
             COLOR=3066993
@@ -66,12 +68,13 @@ jobs:
             COLOR=15158332
             STATUS="❌ Failed"
           fi
+          # Take first line of commit message only, escape for JSON
+          MSG=$(echo "$COMMIT_MSG" | head -1 | sed 's/"/\\"/g')
+          jq -n \
+            --arg title "$STATUS" \
+            --arg desc "**Commit:** \`${GITHUB_SHA::7}\`\n**Message:** $MSG\n**Branch:** ${{ github.ref_name }}" \
+            --argjson color "$COLOR" \
+            '{embeds: [{title: $title, description: $desc, color: $color}]}' | \
           curl -s -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
             -H "Content-Type: application/json" \
-            -d "{
-              \"embeds\": [{
-                \"title\": \"$STATUS\",
-                \"description\": \"**Commit:** \`${GITHUB_SHA::7}\`\n**Message:** ${{ github.event.head_commit.message }}\n**Branch:** ${{ github.ref_name }}\",
-                \"color\": $COLOR
-              }]
-            }"
+            -d @-
