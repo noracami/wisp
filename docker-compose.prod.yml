@@ -9,6 +9,14 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /home/kerker/.docker/config.json:/config.json:ro
+    command: --interval 60 --cleanup wisp-wisp-1
+    restart: unless-stopped
+
   db:
     image: pgvector/pgvector:pg17
     environment:
