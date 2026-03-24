@@ -16,6 +16,7 @@ fn config_with_discord_only() {
             webhook_url: "https://discord.com/webhook".to_string(),
         }),
         line: None,
+        google_search: None,
     };
     assert!(config.discord.is_some());
     assert!(config.line.is_none());
@@ -40,6 +41,8 @@ fn config_with_both_platforms() {
             channel_secret: "line-secret".to_string(),
             channel_access_token: "line-token".to_string(),
         }),
+    };
+        google_search: None,
     };
     assert!(config.discord.is_some());
     assert!(config.line.is_some());

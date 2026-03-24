@@ -1,3 +1,4 @@
+pub mod search;
 pub mod weather;
 
 use std::collections::HashMap;

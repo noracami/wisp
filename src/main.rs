@@ -11,6 +11,7 @@ use wisp::platform::discord::handler::{DiscordState, routes as discord_routes};
 use wisp::platform::line::client::LineClient;
 use wisp::platform::line::handler::{LineState, routes as line_routes};
 use wisp::tools::ToolRegistry;
+use wisp::tools::search::SearchTool;
 use wisp::tools::weather::WeatherTool;
 use wisp::weather::cwa::CwaClient;
 
@@ -42,6 +43,13 @@ async fn main() {
     let mut registry = ToolRegistry::new();
     let cwa_client = CwaClient::with_default_url(&config.cwa_api_key);
     registry.register(Box::new(WeatherTool::new(cwa_client)));
+    if let Some(ref search_config) = config.google_search {
+        registry.register(Box::new(SearchTool::new(
+            &search_config.api_key,
+            &search_config.engine_id,
+        )));
+        tracing::info!("Web search tool enabled");
+    }
     let tools = Arc::new(registry);
 
     let assistant = Arc::new(Assistant::new(

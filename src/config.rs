@@ -10,6 +10,13 @@ pub struct Config {
     pub port: u16,
     pub discord: Option<DiscordConfig>,
     pub line: Option<LineConfig>,
+    pub google_search: Option<GoogleSearchConfig>,
+}
+
+#[derive(Debug, Clone)]
+pub struct GoogleSearchConfig {
+    pub api_key: String,
+    pub engine_id: String,
 }
 
 #[derive(Debug, Clone)]
@@ -56,6 +63,17 @@ impl Config {
             _ => None,
         };
 
+        let google_search = match (
+            env::var("GOOGLE_SEARCH_API_KEY"),
+            env::var("GOOGLE_SEARCH_ENGINE_ID"),
+        ) {
+            (Ok(api_key), Ok(engine_id)) => Some(GoogleSearchConfig {
+                api_key,
+                engine_id,
+            }),
+            _ => None,
+        };
+
         Ok(Self {
             anthropic_api_key: env::var("ANTHROPIC_API_KEY")?,
             database_url: env::var("DATABASE_URL")?,
@@ -68,6 +86,7 @@ impl Config {
                 .expect("PORT must be a number"),
             discord,
             line,
+            google_search,
         })
     }
 }
