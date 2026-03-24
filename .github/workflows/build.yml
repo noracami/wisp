@@ -11,6 +11,7 @@ env:
   PROJECT_ID: careful-broker-485510-r0
   WORKLOAD_IDENTITY_PROVIDER: projects/514754876772/locations/global/workloadIdentityPools/github/providers/github-actions
   SERVICE_ACCOUNT: github-actions@careful-broker-485510-r0.iam.gserviceaccount.com
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
@@ -54,3 +55,23 @@ jobs:
             -H "X-Deploy-Token: ${{ secrets.DEPLOY_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{}'
+
+      - name: Notify Discord
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            COLOR=3066993
+            STATUS="✅ Deployed"
+          else
+            COLOR=15158332
+            STATUS="❌ Failed"
+          fi
+          curl -s -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"embeds\": [{
+                \"title\": \"$STATUS\",
+                \"description\": \"**Commit:** \`${GITHUB_SHA::7}\`\n**Message:** ${{ github.event.head_commit.message }}\n**Branch:** ${{ github.ref_name }}\",
+                \"color\": $COLOR
+              }]
+            }"
