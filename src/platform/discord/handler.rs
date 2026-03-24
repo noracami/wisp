@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use super::verify::verify_signature;
 use crate::assistant::service::Assistant;
+use crate::db::allowed_channels::AllowedChannels;
 use crate::db::users::UserService;
 use crate::platform::{ChatRequest, Platform};
 
@@ -19,6 +20,7 @@ pub struct DiscordState {
     pub bot_token: String,
     pub assistant: Arc<Assistant>,
     pub users: Arc<UserService>,
+    pub allowed_channels: Arc<AllowedChannels>,
 }
 
 pub fn routes(state: Arc<DiscordState>) -> Router {
@@ -59,7 +61,16 @@ async fn handle_interaction(
 
         // APPLICATION_COMMAND
         2 => {
-            let in_guild = interaction["guild_id"].as_str().is_some();
+            let guild_id = interaction["guild_id"].as_str();
+            let channel_id = interaction["channel_id"].as_str().unwrap_or("");
+
+            // Determine visibility: DM/Group DM = public, guild = check allowlist
+            let ephemeral = if let Some(gid) = guild_id {
+                !state.allowed_channels.is_public(gid, channel_id).await
+            } else {
+                false
+            };
+
             let state = state.clone();
             let interaction = interaction.clone();
             tokio::spawn(async move {
@@ -68,8 +79,8 @@ async fn handle_interaction(
                     let _ = send_error_followup(&state, &interaction).await;
                 }
             });
-            // In server: ephemeral (flag 64), in DM: public
-            if in_guild {
+
+            if ephemeral {
                 Json(json!({"type": 5, "data": {"flags": 64}})).into_response()
             } else {
                 Json(json!({"type": 5})).into_response()

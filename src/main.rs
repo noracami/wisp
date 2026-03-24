@@ -5,6 +5,7 @@ use wisp::config::Config;
 use wisp::assistant::service::Assistant;
 use wisp::db::{create_pool, run_migrations};
 use wisp::db::memory::Memory;
+use wisp::db::allowed_channels::AllowedChannels;
 use wisp::db::token_usage::TokenUsageStore;
 use wisp::db::users::UserService;
 use wisp::llm::claude::ClaudeClient;
@@ -38,6 +39,7 @@ async fn main() {
     // Shared services
     let memory = Arc::new(Memory::new(pool.clone()));
     let token_usage = Arc::new(TokenUsageStore::new(pool.clone()));
+    let allowed_channels = Arc::new(AllowedChannels::new(pool.clone()));
     let users = Arc::new(UserService::new(pool));
     let claude = Arc::new(ClaudeClient::with_default_url(&config.anthropic_api_key));
 
@@ -73,6 +75,7 @@ async fn main() {
             bot_token: discord_config.bot_token.clone(),
             assistant: assistant.clone(),
             users: users.clone(),
+            allowed_channels: allowed_channels.clone(),
         });
         app = app.nest("/discord", discord_routes(discord_state));
         tracing::info!("Discord platform enabled");

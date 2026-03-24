@@ -1,3 +1,4 @@
+pub mod allowed_channels;
 pub mod memory;
 pub mod token_usage;
 pub mod users;
@@ -20,6 +21,9 @@ pub async fn run_migrations(pool: &PgPool) -> Result<(), sqlx::Error> {
         .execute(pool)
         .await?;
     sqlx::raw_sql(include_str!("../../migrations/003_token_usage.sql"))
+        .execute(pool)
+        .await?;
+    sqlx::raw_sql(include_str!("../../migrations/004_allowed_channels.sql"))
         .execute(pool)
         .await?;
     Ok(())
