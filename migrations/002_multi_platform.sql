@@ -3,14 +3,14 @@ DROP TABLE IF EXISTS messages CASCADE;
 DROP TABLE IF EXISTS conversations CASCADE;
 
 -- Unified users
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     display_name TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- Platform identity mapping
-CREATE TABLE platform_identities (
+CREATE TABLE IF NOT EXISTS platform_identities (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id),
     platform TEXT NOT NULL,
@@ -20,7 +20,7 @@ CREATE TABLE platform_identities (
 );
 
 -- Conversations bound to unified user_id
-CREATE TABLE conversations (
+CREATE TABLE IF NOT EXISTS conversations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id),
     channel_id TEXT NOT NULL,
@@ -29,11 +29,11 @@ CREATE TABLE conversations (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_conversations_user_channel
+CREATE INDEX IF NOT EXISTS idx_conversations_user_channel
     ON conversations(user_id, channel_id, platform, updated_at DESC);
 
 -- Messages (recreated)
-CREATE TABLE messages (
+CREATE TABLE IF NOT EXISTS messages (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     conversation_id UUID NOT NULL REFERENCES conversations(id),
     role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
@@ -42,6 +42,6 @@ CREATE TABLE messages (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_messages_conversation ON messages(conversation_id, created_at);
-CREATE INDEX idx_messages_embedding ON messages
+CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_embedding ON messages
     USING hnsw (embedding vector_cosine_ops);
