@@ -22,6 +22,21 @@ impl LineClient {
         Self::new(channel_access_token, "https://api.line.me")
     }
 
+    pub async fn show_loading(&self, user_id: &str, seconds: u32) -> Result<(), AppError> {
+        let _ = self
+            .http
+            .post(format!("{}/v2/bot/chat/loading/start", self.base_url))
+            .header("Authorization", format!("Bearer {}", self.channel_access_token))
+            .header("Content-Type", "application/json")
+            .json(&json!({
+                "chatId": user_id,
+                "loadingSeconds": seconds
+            }))
+            .send()
+            .await;
+        Ok(())
+    }
+
     pub async fn reply(&self, reply_token: &str, text: &str) -> Result<(), AppError> {
         self.http
             .post(format!("{}/v2/bot/message/reply", self.base_url))

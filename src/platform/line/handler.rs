@@ -98,6 +98,9 @@ async fn process_event(
     let reply_token = event["replyToken"].as_str().unwrap_or("");
     let text = event["message"]["text"].as_str().unwrap_or("");
 
+    // Show loading animation (only works in 1-on-1 chats, silently ignored otherwise)
+    let _ = state.client.show_loading(platform_user_id, 20).await;
+
     // Determine channel_id based on source type
     let channel_id = event["source"]["groupId"]
         .as_str()
