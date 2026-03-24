@@ -14,7 +14,9 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /home/kerker/.docker/config.json:/config.json:ro
-    command: --interval 60 --cleanup wisp-wisp-1
+    environment:
+      - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL}
+    command: --interval 60 --cleanup --notifications shoutrrr wisp-wisp-1
     restart: unless-stopped
 
   db:
