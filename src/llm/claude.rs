@@ -164,7 +164,7 @@ impl ClaudeClient {
         tools: Option<&Vec<Value>>,
     ) -> Result<LlmResponse, AppError> {
         let request = ClaudeRequest {
-            model: "claude-haiku-4-5-20241022".to_string(),
+            model: "claude-haiku-4-5-20251001".to_string(),
             max_tokens: 1024,
             system: system_prompt.map(|s| s.to_string()),
             messages,
