@@ -150,7 +150,7 @@ impl ClaudeClient {
             tools: tools.cloned(),
         };
 
-        let resp: ClaudeResponse = self
+        let http_resp = self
             .http
             .post(format!("{}/v1/messages", self.base_url))
             .header("x-api-key", &self.api_key)
@@ -158,11 +158,16 @@ impl ClaudeClient {
             .header("content-type", "application/json")
             .json(&request)
             .send()
-            .await?
-            .error_for_status()
-            .map_err(AppError::Request)?
-            .json()
             .await?;
+
+        let status = http_resp.status();
+        if !status.is_success() {
+            let body = http_resp.text().await.unwrap_or_default();
+            tracing::error!("Claude API error ({}): {}", status, body);
+            return Err(AppError::Internal(format!("Claude API error ({}): {}", status, body)));
+        }
+
+        let resp: ClaudeResponse = http_resp.json().await?;
 
         // Check for tool_use first
         for block in &resp.content {
