@@ -4,6 +4,10 @@ on:
   push:
     branches: [main, feat/multi-platform-assistant]
 
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   GAR_LOCATION: asia-east1
   GAR_REPOSITORY: wisp
