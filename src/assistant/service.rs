@@ -4,7 +4,7 @@ use serde_json::Value;
 use crate::db::memory::Memory;
 use crate::db::users::UserService;
 use crate::error::AppError;
-use crate::llm::claude::{ClaudeClient, LlmResponse};
+use crate::llm::claude::{ClaudeClient, LlmResponse, Usage};
 use crate::platform::{ChatMessage, ChatRequest, ChatResponse};
 use crate::tools::ToolRegistry;
 
@@ -30,7 +30,12 @@ fn system_prompt_for(platform: Platform) -> &'static str {
 - 實用導向，給出可以直接行動的建議
 - 語氣親切自然，像朋友聊天一樣",
 
-        Platform::Discord => "You are Wisp, a helpful AI assistant. Keep responses concise.",
+        Platform::Discord => "\
+You are Wisp, a helpful AI assistant. Keep responses concise.
+
+## 語言
+- 優先使用正體中文回應
+- 若使用者使用英文提問，則用英文回應",
     }
 }
 
@@ -100,9 +105,19 @@ impl Assistant {
 
         // Tool call loop — accumulate messages for multi-turn context
         let mut tool_exchanges: Vec<(String, String, Value, String)> = Vec::new();
+        let mut used_tools: Vec<String> = Vec::new();
+        let mut total_usage = Usage::default();
         let mut iterations = 0;
 
-        while let LlmResponse::ToolUse { id, name, input } = &response {
+        // Accumulate usage from initial call
+        match &response {
+            LlmResponse::ToolUse { usage, .. } | LlmResponse::Text { usage, .. } => {
+                total_usage.input_tokens += usage.input_tokens;
+                total_usage.output_tokens += usage.output_tokens;
+            }
+        }
+
+        while let LlmResponse::ToolUse { id, name, input, .. } = &response {
             iterations += 1;
             if iterations > MAX_TOOL_ITERATIONS {
                 let text = "Sorry, I encountered too many tool calls. Please try again.".to_string();
@@ -112,6 +127,8 @@ impl Assistant {
                     .map_err(AppError::Database)?;
                 return Ok(ChatResponse { text });
             }
+
+            used_tools.push(name.clone());
 
             // Execute tool
             let tool_result = match self.tools.execute(name, input.clone()).await {
@@ -131,19 +148,37 @@ impl Assistant {
                     tools_param,
                 )
                 .await?;
+
+            // Accumulate usage from this call
+            match &response {
+                LlmResponse::ToolUse { usage, .. } | LlmResponse::Text { usage, .. } => {
+                    total_usage.input_tokens += usage.input_tokens;
+                    total_usage.output_tokens += usage.output_tokens;
+                }
+            }
         }
 
-        let text = match response {
-            LlmResponse::Text(t) => t,
+        let (text, model) = match response {
+            LlmResponse::Text { text, model, .. } => (text, model),
             _ => unreachable!(),
         };
 
-        // Store assistant response
+        // Build footer
+        let total_tokens = total_usage.input_tokens + total_usage.output_tokens;
+        let footer = if used_tools.is_empty() {
+            format!("\n-# {model} · {total_tokens} tokens")
+        } else {
+            let tools_str = used_tools.join(", ");
+            format!("\n-# {model} · {total_tokens} tokens · {tools_str}")
+        };
+        let text_with_footer = format!("{text}{footer}");
+
+        // Store assistant response (without footer)
         self.memory
             .store_message(conv_id, "assistant", &text, None)
             .await
             .map_err(AppError::Database)?;
 
-        Ok(ChatResponse { text })
+        Ok(ChatResponse { text: text_with_footer })
     }
 }

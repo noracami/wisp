@@ -7,3 +7,4 @@
 - [ ] **全域 Slash Command** — 目前是 Guild scope，測試穩定後改成 Global
 - [ ] **User Install** — 設定 Discord App 支援 User Install，到處都能用
 - [ ] **`platform_identities` 加 `display_name` 欄位** — 存各平台的全域暱稱
+- [ ] **Web 控制面板** — 管理設定、查看對話記錄、環境變數等

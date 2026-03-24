@@ -11,13 +11,25 @@ pub struct ClaudeClient {
     http: Client,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct Usage {
+    pub input_tokens: u32,
+    pub output_tokens: u32,
+}
+
 #[derive(Debug)]
 pub enum LlmResponse {
-    Text(String),
+    Text {
+        text: String,
+        model: String,
+        usage: Usage,
+    },
     ToolUse {
         id: String,
         name: String,
         input: Value,
+        model: String,
+        usage: Usage,
     },
 }
 
@@ -48,8 +60,17 @@ enum ClaudeContent {
 #[derive(Deserialize)]
 struct ClaudeResponse {
     content: Vec<ContentBlock>,
+    model: String,
     #[serde(default)]
-    stop_reason: Option<String>,
+    usage: ClaudeUsage,
+}
+
+#[derive(Deserialize, Default)]
+struct ClaudeUsage {
+    #[serde(default)]
+    input_tokens: u32,
+    #[serde(default)]
+    output_tokens: u32,
 }
 
 #[derive(Deserialize)]
@@ -143,7 +164,7 @@ impl ClaudeClient {
         tools: Option<&Vec<Value>>,
     ) -> Result<LlmResponse, AppError> {
         let request = ClaudeRequest {
-            model: "claude-sonnet-4-20250514".to_string(),
+            model: "claude-haiku-4-5-20241022".to_string(),
             max_tokens: 1024,
             system: system_prompt.map(|s| s.to_string()),
             messages,
@@ -169,6 +190,12 @@ impl ClaudeClient {
 
         let resp: ClaudeResponse = http_resp.json().await?;
 
+        let usage = Usage {
+            input_tokens: resp.usage.input_tokens,
+            output_tokens: resp.usage.output_tokens,
+        };
+        let model = resp.model;
+
         // Check for tool_use first
         for block in &resp.content {
             if let ContentBlock::ToolUse { id, name, input } = block {
@@ -176,6 +203,8 @@ impl ClaudeClient {
                     id: id.clone(),
                     name: name.clone(),
                     input: input.clone(),
+                    model,
+                    usage,
                 });
             }
         }
@@ -183,7 +212,7 @@ impl ClaudeClient {
         // Fall back to text
         for block in resp.content {
             if let ContentBlock::Text { text } = block {
-                return Ok(LlmResponse::Text(text));
+                return Ok(LlmResponse::Text { text, model, usage });
             }
         }
 
