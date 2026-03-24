@@ -1,8 +1,66 @@
 use reqwest::Client;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::fmt::Write;
+use std::sync::LazyLock;
 
 use crate::error::AppError;
+
+/// Maps common location aliases to CWA-official location names.
+/// CWA API requires traditional Chinese with the 「市/縣」 suffix.
+static LOCATION_ALIASES: LazyLock<HashMap<&str, &str>> = LazyLock::new(|| {
+    HashMap::from([
+        ("台北", "臺北市"),
+        ("台北市", "臺北市"),
+        ("臺北", "臺北市"),
+        ("新北", "新北市"),
+        ("桃園", "桃園市"),
+        ("台中", "臺中市"),
+        ("台中市", "臺中市"),
+        ("臺中", "臺中市"),
+        ("台南", "臺南市"),
+        ("台南市", "臺南市"),
+        ("臺南", "臺南市"),
+        ("高雄", "高雄市"),
+        ("基隆", "基隆市"),
+        ("新竹市", "新竹市"),
+        ("新竹", "新竹市"),
+        ("新竹縣", "新竹縣"),
+        ("苗栗", "苗栗縣"),
+        ("苗栗縣", "苗栗縣"),
+        ("彰化", "彰化縣"),
+        ("彰化縣", "彰化縣"),
+        ("南投", "南投縣"),
+        ("南投縣", "南投縣"),
+        ("雲林", "雲林縣"),
+        ("雲林縣", "雲林縣"),
+        ("嘉義市", "嘉義市"),
+        ("嘉義", "嘉義市"),
+        ("嘉義縣", "嘉義縣"),
+        ("屏東", "屏東縣"),
+        ("屏東縣", "屏東縣"),
+        ("宜蘭", "宜蘭縣"),
+        ("宜蘭縣", "宜蘭縣"),
+        ("花蓮", "花蓮縣"),
+        ("花蓮縣", "花蓮縣"),
+        ("台東", "臺東縣"),
+        ("台東縣", "臺東縣"),
+        ("臺東", "臺東縣"),
+        ("臺東縣", "臺東縣"),
+        ("澎湖", "澎湖縣"),
+        ("澎湖縣", "澎湖縣"),
+        ("金門", "金門縣"),
+        ("金門縣", "金門縣"),
+        ("連江", "連江縣"),
+        ("連江縣", "連江縣"),
+        ("馬祖", "連江縣"),
+    ])
+});
+
+fn normalize_location(input: &str) -> &str {
+    let trimmed = input.trim();
+    LOCATION_ALIASES.get(trimmed).copied().unwrap_or(trimmed)
+}
 
 pub struct CwaClient {
     api_key: String,
@@ -94,6 +152,7 @@ impl CwaClient {
     }
 
     pub async fn fetch_forecast(&self, location: &str) -> Result<Forecast, AppError> {
+        let location = normalize_location(location);
         let resp: CwaResponse = self
             .http
             .get(format!(
