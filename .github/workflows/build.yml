@@ -72,7 +72,9 @@ jobs:
           MSG=$(echo "$COMMIT_MSG" | head -1 | sed 's/"/\\"/g')
           jq -n \
             --arg title "$STATUS" \
-            --arg desc "**Commit:** \`${GITHUB_SHA::7}\`\n**Message:** $MSG\n**Branch:** ${{ github.ref_name }}" \
+            --arg desc "**Commit:** ${GITHUB_SHA::7}
+**Message:** $MSG
+**Branch:** ${{ github.ref_name }}" \
             --argjson color "$COLOR" \
             '{embeds: [{title: $title, description: $desc, color: $color}]}' | \
           curl -s -X POST "${{ secrets.DISCORD_WEBHOOK_URL }}" \
