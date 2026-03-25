@@ -5,6 +5,7 @@
 ## 2026-03-25
 
 ### 新增
+- **查詢時間工具** — LLM 可取得目前日期時間（UTC+8 台灣時間），回答時間相關問題
 - **Discord 公開頻道白名單** — `allowed_channels` 表控制 guild 頻道回覆為公開或 ephemeral，DM 永遠公開
 - **Global Slash Command** — `/chat` 從 Guild scope 改為 Global scope
 - **User Install 支援** — 使用者可自行安裝 app，不需要 guild 管理員邀請
