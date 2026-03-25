@@ -14,6 +14,7 @@ use wisp::platform::line::client::LineClient;
 use wisp::platform::line::handler::{LineState, routes as line_routes};
 use wisp::tools::ToolRegistry;
 use wisp::tools::search::SearchTool;
+use wisp::tools::time::TimeTool;
 use wisp::tools::weather::WeatherTool;
 use wisp::weather::cwa::CwaClient;
 
@@ -47,6 +48,7 @@ async fn main() {
     let mut registry = ToolRegistry::new();
     let cwa_client = CwaClient::with_default_url(&config.cwa_api_key);
     registry.register(Box::new(WeatherTool::new(cwa_client)));
+    registry.register(Box::new(TimeTool::new()));
     if let Some(ref search_config) = config.google_search {
         registry.register(Box::new(SearchTool::new(
             &search_config.api_key,
