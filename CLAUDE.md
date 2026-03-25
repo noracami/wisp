@@ -13,4 +13,4 @@ Wisp 是基於 Rust 開發的多平台 AI 助理服務，採用 Platform → Cor
 
 每次 commit 功能變更（feat/fix）後，評估是否需要：
 1. 更新 `CHANGELOG.md` — 記錄大方向的新增/變更
-2. 更新 `docs/TODO.md` — 標記已完成的項目，或新增待辦事項
+2. 更新 `docs/TODO.md` — 新增待辦事項（使用 `T-XXX` 序號，遞增），或移除已完成的項目（已完成的功能由 CHANGELOG 記錄即可，不需保留在 TODO）
