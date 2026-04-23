@@ -59,3 +59,55 @@ async fn interactions_handler(
 
 ### 為什麼這樣做？
 這能直接驗證你的 **Wisp** 能否維持「平時不連線（靜態 Webhook 推播）」但「需要時能接收決策（HTTP 回調）」的架構。
+
+---
+
+## POC 結果 (Stage 1)
+
+> 實驗日期：2026-04-23｜HEAD：`c1d14fb`
+
+### Q1 — User-installed slash command interaction payload 結構
+
+✅ **有答案**。在 guild channel（context 0）觸發 `/tpp-setup` 時，payload 含：
+
+| 欄位 | 值 | 說明 |
+|---|---|---|
+| `context` | `0` | Guild channel |
+| `channel_id` | 有 | ✅ |
+| `guild_id` | 有 | ✅ |
+| `member.user.id` | 有 | 呼叫者 user ID |
+| `authorizing_integration_owners` | `{"1": "<user_id>"}` | key `"1"` = user install，值為授權安裝的 user ID |
+
+`authorizing_integration_owners.1` 是 user-installed app 的特徵欄位，可用於 stage 2 的 per-user authorization。
+
+### Q2 — 手動建的 webhook 能否接受 `components`？
+
+❌ **不行**。
+
+- Discord API 回傳 **204**（接受，無 content）— 不報錯
+- 但訊息在 channel 實際顯示時**按鈕被靜默丟棄**，只有 `content` 文字出現
+- 根本原因：channel settings 手動建的 webhook，owner 是 user 而非 application，Discord 只允許 application-owned webhook 送帶 components 的訊息
+
+### Q3 — 按鈕 click 是否 route 到 Interactions Endpoint？
+
+⛔ **無法測試（被 Q2 阻斷）**。按鈕從未 render，無法點擊。
+
+### Q4 — Click interaction payload 欄位
+
+⛔ **無法取得（被 Q3 阻斷）**。
+
+### Q5 — 不同 context（guild / Bot DM / Group DM）行為差異
+
+⏭️ **跳過**。Q2 已明確失敗，Q5 為 nice-to-have，不影響 go/no-go 決策，不繼續測。
+
+---
+
+### 結論
+
+**Stage 1 結論：此路不通。**
+
+手動建 webhook 的路徑在 Q2 即被 Discord API 阻擋 — components 永遠被 silent strip，無法送出帶按鈕的訊息，整個 webhook-interaction round-trip 假設在此失效。
+
+**下一步（Stage 2 方向）：改走 OAuth `webhook.incoming` scope**。
+
+此方案讓 Wisp 取得 application-owned webhook（由 Discord OAuth 流程授予），此類 webhook 允許帶 `components`。使用者只需一次 OAuth 授權，Wisp 即可在對方頻道送出可互動的按鈕訊息，後續 click 仍走現有的 Interactions Endpoint。詳細設計另寫 Stage 2 spec。
