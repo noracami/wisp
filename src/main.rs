@@ -1,5 +1,6 @@
 use std::sync::Arc;
-use axum::{Router, routing::get};
+use axum::{Json, Router, routing::get};
+use serde_json::json;
 use tracing_subscriber::EnvFilter;
 use wisp::config::Config;
 use wisp::assistant::service::Assistant;
@@ -68,7 +69,17 @@ async fn main() {
     ));
 
     // Build router
-    let mut app = Router::new().route("/health", get(|| async { "ok" }));
+    let mut app = Router::new()
+        .route("/health", get(|| async { "ok" }))
+        .route(
+            "/version",
+            get(|| async {
+                Json(json!({
+                    "commit": env!("GIT_SHA"),
+                    "built_at": env!("BUILT_AT"),
+                }))
+            }),
+        );
 
     // Discord (optional)
     if let Some(ref discord_config) = config.discord {
