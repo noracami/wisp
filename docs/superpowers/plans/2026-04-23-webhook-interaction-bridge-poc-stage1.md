@@ -652,7 +652,7 @@ Replace the existing dispatch block (the part starting `let interaction_type = i
 ```rust
 let kind = interaction["type"]
     .as_u64()
-    .map(|n| InteractionType::from(n as u8));
+    .and_then(|n| InteractionType::try_from(n as u8).ok());
 
 match kind {
     // PING
@@ -709,7 +709,7 @@ Replace the body of `handle_ping_only` — the `if interaction["type"].as_u64() 
 ```rust
 let kind = interaction["type"]
     .as_u64()
-    .map(|n| InteractionType::from(n as u8));
+    .and_then(|n| InteractionType::try_from(n as u8).ok());
 
 match kind {
     Some(InteractionType::Ping) => Json(InteractionResponse {
