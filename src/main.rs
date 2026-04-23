@@ -16,8 +16,9 @@ use wisp::platform::line::handler::{LineState, routes as line_routes};
 use wisp::tools::ToolRegistry;
 use wisp::tools::search::SearchTool;
 use wisp::tools::time::TimeTool;
-use wisp::tpp_poc::PocState;
 use wisp::tools::weather::WeatherTool;
+use wisp::db::tpp_webhooks::{TppWebhookRepo, TppWebhookStore};
+use wisp::platform::discord::oauth::TppOAuthConfig;
 use wisp::weather::cwa::CwaClient;
 
 mod scheduler;
@@ -43,7 +44,7 @@ async fn main() {
     let memory = Arc::new(Memory::new(pool.clone()));
     let token_usage = Arc::new(TokenUsageStore::new(pool.clone()));
     let allowed_channels = Arc::new(AllowedChannels::new(pool.clone()));
-    let users = Arc::new(UserService::new(pool));
+    let users = Arc::new(UserService::new(pool.clone()));
     let claude = Arc::new(ClaudeClient::with_default_url(&config.anthropic_api_key));
 
     // Tool registry
@@ -83,6 +84,14 @@ async fn main() {
 
     // Discord (optional)
     if let Some(ref discord_config) = config.discord {
+        let tpp_webhooks: Arc<dyn TppWebhookStore> =
+            Arc::new(TppWebhookRepo::new(pool.clone()));
+        let oauth_config = TppOAuthConfig {
+            application_id: discord_config.application_id.clone(),
+            client_secret: discord_config.client_secret.clone(),
+            redirect_uri: discord_config.oauth_redirect_uri.clone(),
+            state_secret: discord_config.state_secret.clone(),
+        };
         let discord_state = Arc::new(DiscordState {
             public_key_hex: discord_config.public_key.clone(),
             application_id: discord_config.application_id.clone(),
@@ -90,7 +99,8 @@ async fn main() {
             assistant: assistant.clone(),
             users: users.clone(),
             allowed_channels: allowed_channels.clone(),
-            poc: PocState::new(),
+            tpp_webhooks,
+            oauth_config,
         });
         app = app.nest("/discord", discord_routes(discord_state));
         tracing::info!("Discord platform enabled");

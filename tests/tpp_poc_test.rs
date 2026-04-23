@@ -1,188 +1,142 @@
+use async_trait::async_trait;
 use serde_json::json;
+use std::collections::HashMap;
+use tokio::sync::RwLock;
 use twilight_model::channel::message::MessageFlags;
 use twilight_model::http::interaction::InteractionResponseType;
-use wisp::tpp_poc::{handle_click, handle_ping, handle_setup, PocState};
-use wiremock::matchers::{body_partial_json, method};
-use wiremock::{Mock, MockServer, ResponseTemplate};
+use wisp::db::tpp_webhooks::{StoredWebhook, TppWebhookStore};
+use wisp::platform::discord::oauth::TppOAuthConfig;
+use wisp::tpp_poc::{handle_click, handle_ping, handle_setup};
 
-#[tokio::test]
-async fn poc_state_starts_empty() {
-    let state = PocState::new();
-    let webhooks = state.webhooks.read().await;
-    assert!(webhooks.is_empty());
+fn fake_oauth_config() -> TppOAuthConfig {
+    TppOAuthConfig {
+        application_id: "12345".into(),
+        client_secret: "cs".into(),
+        redirect_uri: "https://wisp.example.com/discord/oauth/callback".into(),
+        state_secret: "ss".into(),
+    }
+}
+
+#[derive(Default)]
+struct FakeStore {
+    inner: RwLock<HashMap<String, StoredWebhook>>,
+}
+
+#[async_trait]
+impl TppWebhookStore for FakeStore {
+    async fn upsert(
+        &self,
+        user_id: &str,
+        webhook_id: &str,
+        webhook_token: &str,
+        channel_id: &str,
+        guild_id: Option<&str>,
+        channel_name: Option<&str>,
+    ) -> sqlx::Result<()> {
+        self.inner.write().await.insert(
+            user_id.to_string(),
+            StoredWebhook {
+                user_id: user_id.into(),
+                webhook_id: webhook_id.into(),
+                webhook_token: webhook_token.into(),
+                channel_id: channel_id.into(),
+                guild_id: guild_id.map(str::to_string),
+                channel_name: channel_name.map(str::to_string),
+            },
+        );
+        Ok(())
+    }
+
+    async fn find_by_user(&self, user_id: &str) -> sqlx::Result<Option<StoredWebhook>> {
+        Ok(self.inner.read().await.get(user_id).cloned())
+    }
 }
 
 #[tokio::test]
-async fn poc_state_insert_and_read() {
-    let state = PocState::new();
-    state
-        .webhooks
-        .write()
-        .await
-        .insert("user-1".to_string(), "https://webhook.example/x".to_string());
-
-    let webhooks = state.webhooks.read().await;
-    assert_eq!(
-        webhooks.get("user-1"),
-        Some(&"https://webhook.example/x".to_string())
-    );
-}
-
-#[tokio::test]
-async fn handle_setup_stores_url_from_guild_member() {
-    let state = PocState::new();
+async fn setup_returns_authorize_url_from_guild_member() {
+    let cfg = fake_oauth_config();
     let interaction = json!({
         "type": 2,
-        "data": {
-            "name": "tpp-setup",
-            "options": [{"name": "url", "type": 3, "value": "https://webhook.example/abc"}]
-        },
-        "member": {"user": {"id": "user-42"}}
+        "data": { "name": "tpp-setup" },
+        "member": { "user": { "id": "329579602429214721" } }
     });
 
-    let response = handle_setup(&state, &interaction).await;
+    let response = handle_setup(&cfg, &interaction).await;
 
     assert_eq!(response.kind, InteractionResponseType::ChannelMessageWithSource);
     let data = response.data.expect("response has data");
     assert_eq!(data.flags, Some(MessageFlags::EPHEMERAL));
-    assert!(data.content.as_deref().unwrap_or("").contains("Registered"));
-
-    let webhooks = state.webhooks.read().await;
-    assert_eq!(
-        webhooks.get("user-42"),
-        Some(&"https://webhook.example/abc".to_string())
-    );
+    let content = data.content.expect("has content");
+    assert!(content.contains("https://discord.com/api/oauth2/authorize"));
+    assert!(content.contains("client_id=12345"));
+    assert!(content.contains("scope=webhook.incoming"));
+    assert!(content.contains("state="));
 }
 
 #[tokio::test]
-async fn handle_setup_stores_url_from_dm_user() {
-    let state = PocState::new();
+async fn setup_returns_authorize_url_from_dm_user() {
+    let cfg = fake_oauth_config();
     let interaction = json!({
         "type": 2,
-        "data": {
-            "name": "tpp-setup",
-            "options": [{"name": "url", "type": 3, "value": "https://webhook.example/dm"}]
-        },
-        "user": {"id": "user-99"}
+        "data": { "name": "tpp-setup" },
+        "user": { "id": "u-dm" }
     });
 
-    let response = handle_setup(&state, &interaction).await;
-
-    assert_eq!(response.kind, InteractionResponseType::ChannelMessageWithSource);
-    let webhooks = state.webhooks.read().await;
-    assert_eq!(
-        webhooks.get("user-99"),
-        Some(&"https://webhook.example/dm".to_string())
-    );
-}
-
-#[tokio::test]
-async fn handle_setup_missing_user_returns_error() {
-    let state = PocState::new();
-    let interaction = json!({
-        "type": 2,
-        "data": {
-            "name": "tpp-setup",
-            "options": [{"name": "url", "type": 3, "value": "https://x"}]
-        }
-    });
-
-    let response = handle_setup(&state, &interaction).await;
-    let data = response.data.expect("has data");
-    assert!(data.content.as_deref().unwrap_or("").to_lowercase().contains("error"));
-    assert!(state.webhooks.read().await.is_empty());
-}
-
-#[tokio::test]
-async fn handle_ping_without_setup_returns_error() {
-    let state = PocState::new();
-    let interaction = json!({
-        "type": 2,
-        "data": {"name": "tpp-ping"},
-        "user": {"id": "user-no-webhook"}
-    });
-
-    let response = handle_ping(&state, &interaction).await;
-
-    assert_eq!(response.kind, InteractionResponseType::ChannelMessageWithSource);
-    let data = response.data.expect("has data");
-    assert_eq!(data.flags, Some(MessageFlags::EPHEMERAL));
-    assert!(
-        data.content
-            .as_deref()
-            .unwrap_or("")
-            .contains("尚未登記")
-    );
-}
-
-#[tokio::test]
-async fn handle_ping_posts_button_message_to_webhook() {
-    let mock = MockServer::start().await;
-
-    Mock::given(method("POST"))
-        .and(body_partial_json(json!({
-            "components": [{"type": 1, "components": [{"type": 2, "custom_id": "tpp-poc-test"}]}]
-        })))
-        .respond_with(ResponseTemplate::new(204))
-        .expect(1)
-        .mount(&mock)
-        .await;
-
-    let webhook_url = format!("{}/webhook/abc/token", mock.uri());
-
-    let state = PocState::new();
-    state
-        .webhooks
-        .write()
-        .await
-        .insert("user-42".to_string(), webhook_url);
-
-    let interaction = json!({
-        "type": 2,
-        "data": {"name": "tpp-ping"},
-        "member": {"user": {"id": "user-42"}}
-    });
-
-    let response = handle_ping(&state, &interaction).await;
-
-    assert_eq!(response.kind, InteractionResponseType::ChannelMessageWithSource);
-    let data = response.data.expect("has data");
-    assert_eq!(data.flags, Some(MessageFlags::EPHEMERAL));
-    assert!(data.content.as_deref().unwrap_or("").contains("Sent"));
-}
-
-#[tokio::test]
-async fn handle_ping_reports_webhook_error_status() {
-    let mock = MockServer::start().await;
-    Mock::given(method("POST"))
-        .respond_with(ResponseTemplate::new(400).set_body_string("bad"))
-        .expect(1)
-        .mount(&mock)
-        .await;
-
-    let webhook_url = format!("{}/webhook/bad/token", mock.uri());
-
-    let state = PocState::new();
-    state.webhooks.write().await.insert("u".to_string(), webhook_url);
-
-    let interaction = json!({
-        "type": 2,
-        "data": {"name": "tpp-ping"},
-        "user": {"id": "u"}
-    });
-
-    let response = handle_ping(&state, &interaction).await;
+    let response = handle_setup(&cfg, &interaction).await;
     let content = response.data.unwrap().content.unwrap();
-    assert!(content.contains("400"), "content was: {content}");
+    assert!(content.contains("https://discord.com/api/oauth2/authorize"));
+}
+
+#[tokio::test]
+async fn setup_missing_user_returns_error() {
+    let cfg = fake_oauth_config();
+    let interaction = json!({
+        "type": 2,
+        "data": { "name": "tpp-setup" }
+    });
+
+    let response = handle_setup(&cfg, &interaction).await;
+    let content = response.data.unwrap().content.unwrap();
+    assert!(content.contains("無法取得 user id"));
+}
+
+#[tokio::test]
+async fn ping_without_authorization_returns_error() {
+    let store = FakeStore::default();
+    let interaction = json!({
+        "type": 2,
+        "data": { "name": "tpp-ping" },
+        "user": { "id": "user-no-webhook" }
+    });
+
+    let response = handle_ping(&store, &interaction).await;
+
+    assert_eq!(response.kind, InteractionResponseType::ChannelMessageWithSource);
+    let data = response.data.expect("has data");
+    assert_eq!(data.flags, Some(MessageFlags::EPHEMERAL));
+    assert!(data.content.as_deref().unwrap_or("").contains("尚未授權"));
+}
+
+#[tokio::test]
+async fn ping_missing_user_id_returns_error() {
+    let store = FakeStore::default();
+    let interaction = json!({
+        "type": 2,
+        "data": { "name": "tpp-ping" }
+    });
+
+    let response = handle_ping(&store, &interaction).await;
+    let content = response.data.unwrap().content.unwrap();
+    assert!(content.contains("無法取得 user id"));
 }
 
 #[tokio::test]
 async fn handle_click_returns_deferred_update_message() {
     let interaction = json!({
         "type": 3,
-        "data": {"custom_id": "tpp-poc-test"},
-        "member": {"user": {"id": "u"}},
-        "message": {"webhook_id": "1234567890"}
+        "data": { "custom_id": "tpp-poc-test" },
+        "member": { "user": { "id": "u" } },
+        "message": { "webhook_id": "1234567890" }
     });
 
     let response = handle_click(&interaction).await;

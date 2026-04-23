@@ -20,6 +20,14 @@ const STATE_TTL_SECS: u64 = 600;
 pub const DISCORD_TOKEN_ENDPOINT: &str = "https://discord.com/api/oauth2/token";
 const DISCORD_AUTHORIZE_ENDPOINT: &str = "https://discord.com/api/oauth2/authorize";
 
+#[derive(Debug, Clone)]
+pub struct TppOAuthConfig {
+    pub application_id: String,
+    pub client_secret: String,
+    pub redirect_uri: String,
+    pub state_secret: String,
+}
+
 #[derive(Debug, Error)]
 pub enum StateError {
     #[error("malformed state")]
