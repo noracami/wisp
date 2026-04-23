@@ -25,6 +25,9 @@ pub struct DiscordConfig {
     pub public_key: String,
     pub bot_token: String,
     pub webhook_url: String,
+    pub client_secret: String,
+    pub oauth_redirect_uri: String,
+    pub state_secret: String,
 }
 
 #[derive(Debug, Clone)]
@@ -40,15 +43,27 @@ impl Config {
             env::var("DISCORD_PUBLIC_KEY"),
             env::var("DISCORD_BOT_TOKEN"),
             env::var("DISCORD_WEBHOOK_URL"),
+            env::var("DISCORD_CLIENT_SECRET"),
+            env::var("DISCORD_OAUTH_REDIRECT_URI"),
+            env::var("TPP_STATE_SECRET"),
         ) {
-            (Ok(app_id), Ok(pub_key), Ok(bot_token), Ok(webhook_url)) => {
-                Some(DiscordConfig {
-                    application_id: app_id,
-                    public_key: pub_key,
-                    bot_token,
-                    webhook_url,
-                })
-            }
+            (
+                Ok(app_id),
+                Ok(pub_key),
+                Ok(bot_token),
+                Ok(webhook_url),
+                Ok(client_secret),
+                Ok(oauth_redirect_uri),
+                Ok(state_secret),
+            ) => Some(DiscordConfig {
+                application_id: app_id,
+                public_key: pub_key,
+                bot_token,
+                webhook_url,
+                client_secret,
+                oauth_redirect_uri,
+                state_secret,
+            }),
             _ => None,
         };
 

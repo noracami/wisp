@@ -14,6 +14,10 @@ fn config_with_discord_only() {
             public_key: "abcdef".to_string(),
             bot_token: "bot-token".to_string(),
             webhook_url: "https://discord.com/webhook".to_string(),
+            client_secret: "client-secret".to_string(),
+            oauth_redirect_uri: "https://wisp.example.com/discord/oauth/callback"
+                .to_string(),
+            state_secret: "state-secret".to_string(),
         }),
         line: None,
         google_search: None,
@@ -36,6 +40,10 @@ fn config_with_both_platforms() {
             public_key: "abcdef".to_string(),
             bot_token: "bot-token".to_string(),
             webhook_url: "https://discord.com/webhook".to_string(),
+            client_secret: "client-secret".to_string(),
+            oauth_redirect_uri: "https://wisp.example.com/discord/oauth/callback"
+                .to_string(),
+            state_secret: "state-secret".to_string(),
         }),
         line: Some(LineConfig {
             channel_secret: "line-secret".to_string(),
