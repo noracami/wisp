@@ -1,6 +1,7 @@
 pub mod allowed_channels;
 pub mod memory;
 pub mod token_usage;
+pub mod tpp_webhooks;
 pub mod users;
 
 use sqlx::postgres::PgPoolOptions;
@@ -24,6 +25,9 @@ pub async fn run_migrations(pool: &PgPool) -> Result<(), sqlx::Error> {
         .execute(pool)
         .await?;
     sqlx::raw_sql(include_str!("../../migrations/004_allowed_channels.sql"))
+        .execute(pool)
+        .await?;
+    sqlx::raw_sql(include_str!("../../migrations/005_tpp_webhooks.sql"))
         .execute(pool)
         .await?;
     Ok(())
