@@ -83,3 +83,20 @@ pub async fn handle_setup(state: &PocState, interaction: &Value) -> InteractionR
 
     ephemeral(format!("✅ Registered webhook for <@{user_id}>"))
 }
+
+/// `/tpp-ping` — POST a single button message to the invoker's registered webhook.
+pub async fn handle_ping(state: &PocState, interaction: &Value) -> InteractionResponse {
+    let Some(user_id) = extract_user_id(interaction) else {
+        return ephemeral("⚠️ Error: missing user id in interaction payload");
+    };
+
+    let url = match state.webhooks.read().await.get(&user_id).cloned() {
+        Some(u) => u,
+        None => {
+            return ephemeral("⚠️ 尚未登記 webhook，請先 /tpp-setup url:<url>");
+        }
+    };
+
+    // Webhook POST is added in Task 4.
+    ephemeral(format!("Would POST to {url} (not implemented yet)"))
+}

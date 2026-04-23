@@ -1,7 +1,7 @@
 use serde_json::json;
 use twilight_model::channel::message::MessageFlags;
 use twilight_model::http::interaction::InteractionResponseType;
-use wisp::tpp_poc::{handle_setup, PocState};
+use wisp::tpp_poc::{handle_ping, handle_setup, PocState};
 
 #[tokio::test]
 async fn poc_state_starts_empty() {
@@ -89,4 +89,26 @@ async fn handle_setup_missing_user_returns_error() {
     let data = response.data.expect("has data");
     assert!(data.content.as_deref().unwrap_or("").to_lowercase().contains("error"));
     assert!(state.webhooks.read().await.is_empty());
+}
+
+#[tokio::test]
+async fn handle_ping_without_setup_returns_error() {
+    let state = PocState::new();
+    let interaction = json!({
+        "type": 2,
+        "data": {"name": "tpp-ping"},
+        "user": {"id": "user-no-webhook"}
+    });
+
+    let response = handle_ping(&state, &interaction).await;
+
+    assert_eq!(response.kind, InteractionResponseType::ChannelMessageWithSource);
+    let data = response.data.expect("has data");
+    assert_eq!(data.flags, Some(MessageFlags::EPHEMERAL));
+    assert!(
+        data.content
+            .as_deref()
+            .unwrap_or("")
+            .contains("尚未登記")
+    );
 }
