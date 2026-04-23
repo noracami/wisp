@@ -4,8 +4,13 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::post;
 use axum::{Json, Router};
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::sync::Arc;
+use twilight_model::application::interaction::InteractionType;
+use twilight_model::channel::message::MessageFlags;
+use twilight_model::http::interaction::{
+    InteractionResponse, InteractionResponseData, InteractionResponseType,
+};
 
 use super::verify::verify_signature;
 use crate::assistant::service::Assistant;
@@ -53,14 +58,20 @@ async fn handle_interaction(
         Err(_) => return (StatusCode::BAD_REQUEST, "Invalid JSON").into_response(),
     };
 
-    let interaction_type = interaction["type"].as_u64().unwrap_or(0);
+    let kind = interaction["type"]
+        .as_u64()
+        .and_then(|n| InteractionType::try_from(n as u8).ok());
 
-    match interaction_type {
+    match kind {
         // PING
-        1 => Json(json!({"type": 1})).into_response(),
+        Some(InteractionType::Ping) => Json(InteractionResponse {
+            kind: InteractionResponseType::Pong,
+            data: None,
+        })
+        .into_response(),
 
         // APPLICATION_COMMAND
-        2 => {
+        Some(InteractionType::ApplicationCommand) => {
             let guild_id = interaction["guild_id"].as_str();
             let channel_id = interaction["channel_id"].as_str().unwrap_or("");
 
@@ -80,11 +91,20 @@ async fn handle_interaction(
                 }
             });
 
-            if ephemeral {
-                Json(json!({"type": 5, "data": {"flags": 64}})).into_response()
+            let data = if ephemeral {
+                Some(InteractionResponseData {
+                    flags: Some(MessageFlags::EPHEMERAL),
+                    ..Default::default()
+                })
             } else {
-                Json(json!({"type": 5})).into_response()
-            }
+                None
+            };
+
+            Json(InteractionResponse {
+                kind: InteractionResponseType::DeferredChannelMessageWithSource,
+                data,
+            })
+            .into_response()
         }
 
         _ => (StatusCode::BAD_REQUEST, "Unknown interaction type").into_response(),
@@ -178,9 +198,16 @@ async fn handle_ping_only(
         Err(_) => return (StatusCode::BAD_REQUEST, "Invalid JSON").into_response(),
     };
 
-    if interaction["type"].as_u64() == Some(1) {
-        Json(json!({"type": 1})).into_response()
-    } else {
-        (StatusCode::BAD_REQUEST, "Only PING supported in test mode").into_response()
+    let kind = interaction["type"]
+        .as_u64()
+        .and_then(|n| InteractionType::try_from(n as u8).ok());
+
+    match kind {
+        Some(InteractionType::Ping) => Json(InteractionResponse {
+            kind: InteractionResponseType::Pong,
+            data: None,
+        })
+        .into_response(),
+        _ => (StatusCode::BAD_REQUEST, "Only PING supported in test mode").into_response(),
     }
 }
