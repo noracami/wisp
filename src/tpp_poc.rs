@@ -138,3 +138,17 @@ pub async fn handle_ping(state: &PocState, interaction: &Value) -> InteractionRe
         }
     }
 }
+
+/// type:3 MessageComponent handler — logs the full payload and ACKs with
+/// DeferredUpdateMessage (does not change the original message).
+pub async fn handle_click(interaction: &Value) -> InteractionResponse {
+    tracing::info!(
+        event = "tpp_poc.click",
+        payload = %serde_json::to_string(interaction).unwrap_or_default(),
+    );
+
+    InteractionResponse {
+        kind: InteractionResponseType::DeferredUpdateMessage,
+        data: None,
+    }
+}

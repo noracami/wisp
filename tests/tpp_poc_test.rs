@@ -1,7 +1,7 @@
 use serde_json::json;
 use twilight_model::channel::message::MessageFlags;
 use twilight_model::http::interaction::InteractionResponseType;
-use wisp::tpp_poc::{handle_ping, handle_setup, PocState};
+use wisp::tpp_poc::{handle_click, handle_ping, handle_setup, PocState};
 use wiremock::matchers::{body_partial_json, method};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -174,4 +174,19 @@ async fn handle_ping_reports_webhook_error_status() {
     let response = handle_ping(&state, &interaction).await;
     let content = response.data.unwrap().content.unwrap();
     assert!(content.contains("400"), "content was: {content}");
+}
+
+#[tokio::test]
+async fn handle_click_returns_deferred_update_message() {
+    let interaction = json!({
+        "type": 3,
+        "data": {"custom_id": "tpp-poc-test"},
+        "member": {"user": {"id": "u"}},
+        "message": {"webhook_id": "1234567890"}
+    });
+
+    let response = handle_click(&interaction).await;
+
+    assert_eq!(response.kind, InteractionResponseType::DeferredUpdateMessage);
+    assert!(response.data.is_none());
 }
