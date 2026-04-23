@@ -15,6 +15,7 @@ use wisp::platform::line::handler::{LineState, routes as line_routes};
 use wisp::tools::ToolRegistry;
 use wisp::tools::search::SearchTool;
 use wisp::tools::time::TimeTool;
+use wisp::tpp_poc::PocState;
 use wisp::tools::weather::WeatherTool;
 use wisp::weather::cwa::CwaClient;
 
@@ -78,6 +79,7 @@ async fn main() {
             assistant: assistant.clone(),
             users: users.clone(),
             allowed_channels: allowed_channels.clone(),
+            poc: PocState::new(),
         });
         app = app.nest("/discord", discord_routes(discord_state));
         tracing::info!("Discord platform enabled");

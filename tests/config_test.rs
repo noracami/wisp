@@ -41,7 +41,6 @@ fn config_with_both_platforms() {
             channel_secret: "line-secret".to_string(),
             channel_access_token: "line-token".to_string(),
         }),
-    };
         google_search: None,
     };
     assert!(config.discord.is_some());

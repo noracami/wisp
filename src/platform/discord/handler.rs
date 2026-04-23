@@ -26,6 +26,7 @@ pub struct DiscordState {
     pub assistant: Arc<Assistant>,
     pub users: Arc<UserService>,
     pub allowed_channels: Arc<AllowedChannels>,
+    pub poc: Arc<crate::tpp_poc::PocState>,
 }
 
 pub fn routes(state: Arc<DiscordState>) -> Router {
@@ -72,6 +73,22 @@ async fn handle_interaction(
 
         // APPLICATION_COMMAND
         Some(InteractionType::ApplicationCommand) => {
+            let command_name = interaction["data"]["name"].as_str().unwrap_or("");
+
+            // POC commands: handled synchronously, return their own InteractionResponse.
+            match command_name {
+                "tpp-setup" => {
+                    return Json(crate::tpp_poc::handle_setup(&state.poc, &interaction).await)
+                        .into_response();
+                }
+                "tpp-ping" => {
+                    return Json(crate::tpp_poc::handle_ping(&state.poc, &interaction).await)
+                        .into_response();
+                }
+                _ => {}
+            }
+
+            // Fall through to existing Assistant flow.
             let guild_id = interaction["guild_id"].as_str();
             let channel_id = interaction["channel_id"].as_str().unwrap_or("");
 
@@ -105,6 +122,10 @@ async fn handle_interaction(
                 data,
             })
             .into_response()
+        }
+
+        Some(InteractionType::MessageComponent) => {
+            Json(crate::tpp_poc::handle_click(&interaction).await).into_response()
         }
 
         _ => (StatusCode::BAD_REQUEST, "Unknown interaction type").into_response(),
