@@ -97,6 +97,44 @@ pub async fn handle_ping(state: &PocState, interaction: &Value) -> InteractionRe
         }
     };
 
-    // Webhook POST is added in Task 4.
-    ephemeral(format!("Would POST to {url} (not implemented yet)"))
+    // Component numeric types: 1 = ACTION_ROW, 2 = BUTTON. Button style 1 = PRIMARY.
+    // Kept as raw JSON (not twilight-model structs) because this shape mirrors the
+    // Discord webhook Execute payload and doesn't depend on twilight field layouts.
+    let body = serde_json::json!({
+        "content": "POC button test — 請點下方按鈕",
+        "components": [{
+            "type": 1,
+            "components": [{
+                "type": 2,
+                "style": 1,
+                "label": "Click me",
+                "custom_id": "tpp-poc-test"
+            }]
+        }]
+    });
+
+    tracing::info!(event = "tpp_poc.ping.send.start", user_id = %user_id, url = %url);
+
+    let result = reqwest::Client::new().post(&url).json(&body).send().await;
+
+    match result {
+        Ok(response) => {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            tracing::info!(
+                event = "tpp_poc.ping.send.done",
+                status = status.as_u16(),
+                body = %text,
+            );
+            if status.is_success() {
+                ephemeral("✅ Sent")
+            } else {
+                ephemeral(format!("⚠️ Webhook returned {status}: {text}"))
+            }
+        }
+        Err(e) => {
+            tracing::warn!(event = "tpp_poc.ping.send.error", error = %e);
+            ephemeral(format!("❌ Failed to POST webhook: {e}"))
+        }
+    }
 }

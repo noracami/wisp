@@ -2,6 +2,8 @@ use serde_json::json;
 use twilight_model::channel::message::MessageFlags;
 use twilight_model::http::interaction::InteractionResponseType;
 use wisp::tpp_poc::{handle_ping, handle_setup, PocState};
+use wiremock::matchers::{body_partial_json, method};
+use wiremock::{Mock, MockServer, ResponseTemplate};
 
 #[tokio::test]
 async fn poc_state_starts_empty() {
@@ -111,4 +113,65 @@ async fn handle_ping_without_setup_returns_error() {
             .unwrap_or("")
             .contains("尚未登記")
     );
+}
+
+#[tokio::test]
+async fn handle_ping_posts_button_message_to_webhook() {
+    let mock = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(body_partial_json(json!({
+            "components": [{"type": 1, "components": [{"type": 2, "custom_id": "tpp-poc-test"}]}]
+        })))
+        .respond_with(ResponseTemplate::new(204))
+        .expect(1)
+        .mount(&mock)
+        .await;
+
+    let webhook_url = format!("{}/webhook/abc/token", mock.uri());
+
+    let state = PocState::new();
+    state
+        .webhooks
+        .write()
+        .await
+        .insert("user-42".to_string(), webhook_url);
+
+    let interaction = json!({
+        "type": 2,
+        "data": {"name": "tpp-ping"},
+        "member": {"user": {"id": "user-42"}}
+    });
+
+    let response = handle_ping(&state, &interaction).await;
+
+    assert_eq!(response.kind, InteractionResponseType::ChannelMessageWithSource);
+    let data = response.data.expect("has data");
+    assert_eq!(data.flags, Some(MessageFlags::EPHEMERAL));
+    assert!(data.content.as_deref().unwrap_or("").contains("Sent"));
+}
+
+#[tokio::test]
+async fn handle_ping_reports_webhook_error_status() {
+    let mock = MockServer::start().await;
+    Mock::given(method("POST"))
+        .respond_with(ResponseTemplate::new(400).set_body_string("bad"))
+        .expect(1)
+        .mount(&mock)
+        .await;
+
+    let webhook_url = format!("{}/webhook/bad/token", mock.uri());
+
+    let state = PocState::new();
+    state.webhooks.write().await.insert("u".to_string(), webhook_url);
+
+    let interaction = json!({
+        "type": 2,
+        "data": {"name": "tpp-ping"},
+        "user": {"id": "u"}
+    });
+
+    let response = handle_ping(&state, &interaction).await;
+    let content = response.data.unwrap().content.unwrap();
+    assert!(content.contains("400"), "content was: {content}");
 }
