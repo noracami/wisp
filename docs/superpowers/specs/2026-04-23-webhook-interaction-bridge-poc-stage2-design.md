@@ -22,8 +22,9 @@ Stage 1 的 Q1 已解。Stage 2 focus 在以下未知：
 | Q4 | Click interaction payload 的 `application_id` / `message.webhook_id` / `channel_id` / `user.id` 長什麼樣？ | type:3 payload dump |
 | Q6 | OAuth 授權流程 UX：一次授權能覆蓋多少範圍？`channel_id` 是使用者選還是 Wisp 指定？ | 實作授權頁並觀察 |
 | Q7 | OAuth callback response 的 `webhook` object 欄位是否足夠直接執行？還需要額外 API 呼叫嗎？ | 收到 callback 時 dump 整個 token response |
-| Q8 | 使用者無 Manage Webhooks 時，授權頁如何呈現？（channel selector 空白？整個流程報錯？） | 在無權限的 guild 嘗試授權 |
+| Q8 | 授權頁的 channel selector 對 **部分授權** 的使用者呈現什麼？（只顯示有權限的 channel？全列但 disable？完全空白？）需分三種梯度觀察：<br>• **Q8a** 完整 Manage Webhooks（role-wide）<br>• **Q8b** 僅單一 channel override 有 Manage Webhooks（部分）<br>• **Q8c** 完全無 Manage Webhooks | 各別在對應 guild 嘗試授權 |
 | Q9 | 授權頁的 channel selector 是否**只**列 guild channel？DM / group DM 會出現嗎？ | Experiment A 授權時觀察 selector 內容 |
+| Q10 | 若使用者在授權頁選了一個「事後權限被撤回」的 channel，既存 webhook 是否仍能 POST？還是 Discord 會拒絕 execute？ | Stage 2 範圍內暫不測（需模擬權限變動），Stage 3 再考慮 |
 
 ### 明確不在 Stage 2 範圍
 
@@ -33,11 +34,11 @@ Stage 1 的 Q1 已解。Stage 2 focus 在以下未知：
 - `/tpp-ping` 的訊息自訂（固定單一按鈕即可）
 - 錯誤訊息 UX 打磨
 
-### Discord 權限前提（非驗證項）
+### Discord 權限前提（部分為驗證項）
 
-- **授權的使用者在目標 channel 必須有 Manage Webhooks 權限**。授權流程能否走完取決於此。
+- **授權的使用者在目標 channel 必須有 Manage Webhooks 權限**。授權流程能否走完取決於此。Discord 權限可在 role / category / channel 三層 grant/deny，所以「有沒有權限」對同一個 guild 的不同 channel 可能答案不同。
 - Wisp application 本身只需 `webhook.incoming` OAuth scope，**不需要**當 bot 裝到 guild，也不需任何 guild permission。
-- 此為 Discord 官方文件明確規則，Stage 2 驗證不重測；但 Q8 會順手記錄「無權限時」的實際頁面行為。
+- 「使用者至少要有 Manage Webhooks 才能授權」是 Discord 官方規則，Stage 2 不重測；但**授權頁對不同權限梯度的 UX** 屬於觀察不足的未知（Q8a/b/c），會在 Experiment A / A2 / A3 驗證。
 
 上述延後到 Stage 3 spec。
 
@@ -384,14 +385,26 @@ POC 路徑：直接 DELETE 舊的、重建新的（一次性）。保留 `script
 7. **確認 channel 訊息底下出現按鈕** ✅（這是 Q2′ 通過條件）
 8. **點按鈕** → 看 log `tpp_poc.click` **是否出現**（Q3）+ 記錄 payload 欄位（Q4）
 
-**Experiment A2 — 權限不足的使用者（Q8）**
+**Experiment A2 — 部分權限觀察（Q8b）**
 
-1. 到一個你**沒有 Manage Webhooks 權限**的 guild（可問朋友借一個 server 降低你的角色權限，或用另一個帳號）
+1. 在一個**使用者不具 role-wide Manage Webhooks** 但**某個特定 channel override 給了 Manage Webhooks** 的 guild
+   - 可以自己建一個 test guild、把測試帳號加進去、單獨在一個 channel 加 permission override
+   - 或用一個你 admin 的 server，臨時調整自己某個角色的 channel-level override
+2. 在任意 channel 打 `/tpp-setup` → 取得授權連結
+3. 瀏覽器開連結 → 觀察授權頁 channel selector：
+   - 只列那一個有 override 的 channel？
+   - 列全部但只有那一個可選？
+   - 還是全都 disabled（Discord 以 role-wide 為準）？
+4. 若能授權，完成後觀察 DB 記錄，並跑 `/tpp-ping` 驗 webhook 仍可 execute
+
+**Experiment A3 — 完全無權限（Q8c）**
+
+1. 到一個使用者**完全沒有 Manage Webhooks（role 和 channel override 都沒給）** 的 guild
 2. 在任意 channel 打 `/tpp-setup` → 取得授權連結
 3. 瀏覽器開連結 → 觀察授權頁：
-   - Channel selector 是空的？
-   - 所有 channel 都 disabled？
-   - 選下去 Discord 直接報錯？
+   - Channel selector 空白？
+   - 列全部但全部 disabled？
+   - 直接報錯頁？
 4. 記錄實際行為，**不強求完成授權**。
 
 **Experiment B —（預期跳過）授權到 DM / group DM**
