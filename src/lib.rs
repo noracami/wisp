@@ -5,4 +5,5 @@ pub mod error;
 pub mod llm;
 pub mod platform;
 pub mod tools;
+pub mod tpp_poc;
 pub mod weather;
