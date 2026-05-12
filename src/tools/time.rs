@@ -30,7 +30,7 @@ impl Tool for TimeTool {
         })
     }
 
-    async fn execute(&self, _input: Value) -> Result<String, AppError> {
+    async fn execute(&self, _input: Value, _ctx: &super::ToolContext) -> Result<String, AppError> {
         let offset = FixedOffset::east_opt(8 * 3600).unwrap();
         let now = Utc::now().with_timezone(&offset);
         let weekday = match now.format("%A").to_string().as_str() {

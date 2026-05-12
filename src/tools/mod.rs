@@ -5,15 +5,26 @@ pub mod weather;
 use std::collections::HashMap;
 use async_trait::async_trait;
 use serde_json::Value;
+use uuid::Uuid;
 
 use crate::error::AppError;
+use crate::platform::Platform;
+
+#[derive(Debug, Clone)]
+pub struct ToolContext {
+    pub user_id: Uuid,
+    pub platform: Platform,
+    pub channel_id: String,
+    pub guild_id: Option<String>,
+    pub source_message_id: Option<String>,
+}
 
 #[async_trait]
 pub trait Tool: Send + Sync {
     fn name(&self) -> &str;
     fn description(&self) -> &str;
     fn parameters(&self) -> Value;
-    async fn execute(&self, input: Value) -> Result<String, AppError>;
+    async fn execute(&self, input: Value, ctx: &ToolContext) -> Result<String, AppError>;
 }
 
 pub struct ToolRegistry {
@@ -44,11 +55,16 @@ impl ToolRegistry {
             .collect()
     }
 
-    pub async fn execute(&self, name: &str, input: Value) -> Result<String, AppError> {
+    pub async fn execute(
+        &self,
+        name: &str,
+        input: Value,
+        ctx: &ToolContext,
+    ) -> Result<String, AppError> {
         let tool = self
             .tools
             .get(name)
             .ok_or_else(|| AppError::Internal(format!("Unknown tool: {name}")))?;
-        tool.execute(input).await
+        tool.execute(input, ctx).await
     }
 }

@@ -7,7 +7,7 @@ use crate::db::users::UserService;
 use crate::error::AppError;
 use crate::llm::claude::{ClaudeClient, LlmResponse, Usage};
 use crate::platform::{ChatMessage, ChatRequest, ChatResponse};
-use crate::tools::ToolRegistry;
+use crate::tools::{ToolContext, ToolRegistry};
 
 use crate::platform::Platform;
 
@@ -135,7 +135,14 @@ impl Assistant {
             used_tools.push(name.clone());
 
             // Execute tool
-            let tool_result = match self.tools.execute(name, input.clone()).await {
+            let ctx = ToolContext {
+                user_id: request.user_id,
+                platform: request.platform,
+                channel_id: request.channel_id.clone(),
+                guild_id: None,            // populated in Task 4
+                source_message_id: None,   // populated in Task 4
+            };
+            let tool_result = match self.tools.execute(name, input.clone(), &ctx).await {
                 Ok(result) => result,
                 Err(e) => format!("Tool error: {e}"),
             };

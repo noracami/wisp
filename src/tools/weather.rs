@@ -38,7 +38,7 @@ impl Tool for WeatherTool {
         })
     }
 
-    async fn execute(&self, input: Value) -> Result<String, AppError> {
+    async fn execute(&self, input: Value, _ctx: &super::ToolContext) -> Result<String, AppError> {
         let location = input["location"].as_str().unwrap_or("臺北市");
         let forecast = self
             .cwa_client

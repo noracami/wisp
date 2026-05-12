@@ -1,5 +1,6 @@
 use serde_json::{json, Value};
-use wisp::tools::{ToolRegistry, Tool};
+use wisp::tools::{ToolRegistry, Tool, ToolContext};
+use wisp::platform::Platform;
 use wisp::error::AppError;
 use async_trait::async_trait;
 
@@ -18,7 +19,7 @@ impl Tool for EchoTool {
             "required": ["text"]
         })
     }
-    async fn execute(&self, input: Value) -> Result<String, AppError> {
+    async fn execute(&self, input: Value, _ctx: &ToolContext) -> Result<String, AppError> {
         Ok(input["text"].as_str().unwrap_or("").to_string())
     }
 }
@@ -39,7 +40,14 @@ async fn registry_execute_known_tool() {
     let mut registry = ToolRegistry::new();
     registry.register(Box::new(EchoTool));
 
-    let result = registry.execute("echo", json!({"text": "hello"})).await;
+    let ctx = ToolContext {
+        user_id: uuid::Uuid::nil(),
+        platform: Platform::Discord,
+        channel_id: "test".into(),
+        guild_id: None,
+        source_message_id: None,
+    };
+    let result = registry.execute("echo", json!({"text": "hello"}), &ctx).await;
     assert!(result.is_ok());
     assert_eq!(result.unwrap(), "hello");
 }
@@ -47,6 +55,13 @@ async fn registry_execute_known_tool() {
 #[tokio::test]
 async fn registry_execute_unknown_tool() {
     let registry = ToolRegistry::new();
-    let result = registry.execute("nonexistent", json!({})).await;
+    let ctx = ToolContext {
+        user_id: uuid::Uuid::nil(),
+        platform: Platform::Discord,
+        channel_id: "test".into(),
+        guild_id: None,
+        source_message_id: None,
+    };
+    let result = registry.execute("nonexistent", json!({}), &ctx).await;
     assert!(result.is_err());
 }

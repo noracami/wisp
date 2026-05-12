@@ -58,7 +58,7 @@ impl Tool for SearchTool {
         })
     }
 
-    async fn execute(&self, input: Value) -> Result<String, AppError> {
+    async fn execute(&self, input: Value, _ctx: &super::ToolContext) -> Result<String, AppError> {
         let query = input["query"]
             .as_str()
             .ok_or_else(|| AppError::Internal("Missing query parameter".to_string()))?;
