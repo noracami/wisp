@@ -1,5 +1,6 @@
 pub mod allowed_channels;
 pub mod memory;
+pub mod reminders;
 pub mod token_usage;
 pub mod tpp_webhooks;
 pub mod users;
