@@ -65,12 +65,17 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Trigger deploy
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: hobby
+          location: asia-east1-b
+
+      - name: Deploy to GKE
         run: |
-          curl -s -X POST "${{ secrets.DEPLOY_WEBHOOK_URL }}" \
-            -H "X-Deploy-Token: ${{ secrets.DEPLOY_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d '{}'
+          kubectl set image deployment/wisp -n wisp \
+            wisp=${{ env.GAR_LOCATION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          kubectl rollout status deployment/wisp -n wisp --timeout=180s
 
       - name: Notify Discord
         if: always()
