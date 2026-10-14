@@ -1,5 +1,14 @@
 # TODO
 
+## 封存後的清理
+
+2026-10-15 封存，服務已停止，`https://wisp.miao-bao.cc` 不再回應。以下是平台那端還指著它的設定：
+
+- [ ] T-010 **Discord Developer Portal：清掉 Interactions Endpoint URL** — 現在指著 `https://wisp.miao-bao.cc/discord/interactions`，服務停了之後使用者叫 `/chat` 會看到「應用程式沒有回應」。General Information → Interactions Endpoint URL 清空。
+- [ ] T-011 **刪除 Discord slash commands** — Global 的 `/chat`，以及 TPP POC 註冊的 user-installed commands（`/tpp-setup` 等）。可以用 `discord-commands` skill 或 `DELETE /applications/{id}/commands/{command_id}`。
+- [ ] T-012 **決定 Discord application 本身要不要留** — 重啟的新 agent 如果沿用同一個 application（保留 bot 名稱、已加入的伺服器、User Install），就只清設定不刪 app；不沿用的話，把 bot 從伺服器踢掉並刪除 application。
+- [ ] T-006（見下方）一併處理：revoke POC 時手動建的 `Captain Hook 1` webhook。
+
 ## 待實作
 
 - [ ] T-001 **Discord guild 暱稱** — 新增 `discord_user_profiles` 表，存 per guild 的 nickname（`user_id`, `guild_id`, `nickname`, `joined_at`）。LINE 暱稱直接放 `platform_identities.display_name`。
