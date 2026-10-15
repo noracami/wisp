@@ -1,5 +1,10 @@
 # Wisp
 
+> **已封存（2026-10-15）。** 這個版本不再維護，也不再部署：實際長期在用的只有每日天氣預報，對話記憶從沒接上。
+> 之後會以 TypeScript 重新設計成「多介面、有記憶、能用工具」的聊天 agent，另開新專案。
+> 這裡保留作為參考：分層架構、跨平台身分表、工具呼叫迴圈，以及 [TPP POC 的實驗結論](docs/feature-request/webhook-interaction-bridge-poc.md)。
+> 封存後還要做的平台清理見 [docs/TODO.md](docs/TODO.md)「封存後的清理」。
+
 基於 Rust 開發的高效能多平台 AI 助理服務。採用分層架構，平台層（Discord、LINE）與核心邏輯完全分離，新增平台無需修改核心程式碼。
 
 ## 架構
